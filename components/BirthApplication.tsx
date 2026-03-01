@@ -2133,7 +2133,7 @@ export default function BirthRegistrationForm() {
   const sendOTP = async () => {
     try {
       // Check if required personal information is available
-      if (!formData.personInfoForBirth.personFirstNameBn) {
+      if (!formData.personInfoForBirth.personFirstNameBn && !formData.personInfoForBirth.personFirstNameEn) {
         toast.error("প্রথমে ব্যক্তির তথ্য পূরণ করুন");
         return;
       }
@@ -2172,7 +2172,7 @@ export default function BirthRegistrationForm() {
         },
         body: JSON.stringify({
           phone: `+88${formData.applicant.phone}`,
-          personName: `${formData.personInfoForBirth.personFirstNameBn} ${formData.personInfoForBirth.personLastNameBn}`,
+          personName: `${formData.personInfoForBirth.personFirstNameBn} ${formData.personInfoForBirth.personLastNameBn}` || `${formData.personInfoForBirth.personFirstNameEn} ${formData.personInfoForBirth.personLastNameEn}` || "",
           ubrn:
             formData.applicant.relation === "SELF"
               ? ""

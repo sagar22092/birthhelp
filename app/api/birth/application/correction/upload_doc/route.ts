@@ -29,12 +29,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Disable SSL verification (only in dev)
-    // if (process.env.NODE_ENV === "development") {
-    //   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-    // }
-
-    // Build query parameters safel
 
     const url = `${process.env.BDRIS_PROXY}/admin/doc/upload`;
 
