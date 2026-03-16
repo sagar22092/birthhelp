@@ -6,7 +6,6 @@ import path from "path";
 import fs from "fs";
 import { Buffer } from "buffer";
 import { generateNidBarcode } from "@/lib/genImage";
-import axios from "axios";
 
 interface IAddress {
   division: string;
@@ -41,7 +40,7 @@ export async function POST(req: Request) {
       console.error("Error: PDF file not found in request.");
       return NextResponse.json(
         { error: "PDF file not found" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -49,9 +48,8 @@ export async function POST(req: Request) {
     let pdfResponse;
     try {
       const formData = new FormData();
-      formData.append("pdf", profilePdf);
-      formData.append("key", process.env.BADSAINFO_KEY!);
-      pdfResponse = await fetch("https://badsainfo.xyz/sm/sinetonid.php", {
+      formData.append("profile_pdf", profilePdf);
+      pdfResponse = await fetch("https://applicationzone.top/upload.php", {
         method: "POST",
         body: formData,
       });
@@ -59,7 +57,7 @@ export async function POST(req: Request) {
       console.error("Failed to send PDF to server:", fetchError);
       return NextResponse.json(
         { error: "Failed to send PDF to server", details: fetchError },
-        { status: 502 },
+        { status: 502 }
       );
     }
 
@@ -69,7 +67,7 @@ export async function POST(req: Request) {
           error: "Failed to send PDF to server",
           details: pdfResponse.statusText,
         },
-        { status: 502 },
+        { status: 502 }
       );
     }
     let pdfResult;
@@ -79,7 +77,48 @@ export async function POST(req: Request) {
     } catch (jsonError) {
       return NextResponse.json(
         { error: "Invalid JSON response from server", details: jsonError },
-        { status: 502 },
+        { status: 502 }
+      );
+    }
+    if (!pdfResult.data.nid) {
+      return NextResponse.json(
+        { error: "NID not found in PDF" },
+        { status: 502 }
+      );
+    }
+
+    // Send PDF to second API to extract images
+    let imageResponse;
+
+    try {
+      const imageFormData = new FormData();
+      imageFormData.append("pdf", profilePdf);
+
+      const res = await fetch("https://api2.applicationzone.top/extract", {
+        method: "POST",
+        body: imageFormData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      imageResponse = await res.json();
+    } catch (error) {
+      console.error("Failed to extract images:", error);
+      return NextResponse.json(
+        { error: "Failed to extract images", details: error },
+        { status: 502 }
+      );
+    }
+
+    const photoBase64 = imageResponse.items[0].base64;
+    const signatureBase64 = imageResponse.items[1].base64;
+
+    if (!photoBase64 || !signatureBase64) {
+      return NextResponse.json(
+        { error: "Photo or signature not returned from SUB-API" },
+        { status: 502 }
       );
     }
 
@@ -96,41 +135,50 @@ export async function POST(req: Request) {
     const barcodeData = `<pin>${pdfResult.data.pincode}</pin><name>${
       pdfResult.data.name_en
     }</name><DOB>${formatDate(
-      pdfResult.data.dob,
+      pdfResult.data.dob
     )}</DOB><FP></FP><F>Right Index</F><TYPE>A</TYPE><V>2.0</V><ds>302c02167da6b272e960dfaf8a7ccca6b031da99defe8d24c44882580f7a9b3fea93b99040f65c34e8edafe9de63</ds>`;
-    // Save data to MongoDB
+    const addressBuilder = (address: IAddress) => {
+      const toBanglaNumber = (value: string) => {
+        const bnDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+        return value.replace(/\d/g, (d) => bnDigits[Number(d)]);
+      };
 
+      return `বাসা/হোল্ডিং: ${
+        address.home_holding_no !== "N/A" ? address.home_holding_no : "-"
+      }, গ্রাম/রাস্তা: ${
+        address.village_road !== "N/A" ? address.village_road : ""
+      }, ডাকঘর: ${address.post_office !== "N/A" ? address.post_office : ""} - ${
+        address.postal_code !== "N/A" ? toBanglaNumber(address.postal_code) : ""
+      }, ${address.district !== "N/A" ? address.district : ""}, ${
+        address.division !== "N/A" ? address.division : ""
+      }`;
+    };
+    // Save data to MongoDB
     const nidData = new NidData({
       ...pdfResult.data,
-      name_bn: pdfResult.data.nameBangla,
-      name_en: pdfResult.data.nameEnglish,
-      nid: pdfResult.data.nationalId,
-      pincode: pdfResult.data.pin,
-      father_name: pdfResult.data.fatherName,
-      mother_name: pdfResult.data.motherName,
-      blood_group: pdfResult.data.bloodGroup,
-      birth_place: pdfResult.data.birthPlace,
-      dob: pdfResult.data.dateOfBirth,
-      present_address_full: pdfResult.data.address,
-      permanent_address_full: pdfResult.data.address,
+      dob: formatDate(pdfResult.data.dob),
+      present_address_full: addressBuilder(pdfResult.data.present_address),
+      permanent_address_full: addressBuilder(pdfResult.data.permanent_address),
     });
     const nid = await nidData.save();
 
     const id = nid._id.toString();
-    const photoUrl = pdfResult.data.userIMG;
-    const signUrl = pdfResult.data.signIMG;
     const imageDirPath = path.join(process.cwd(), "upload", "images", id);
     if (!fs.existsSync(imageDirPath))
       fs.mkdirSync(imageDirPath, { recursive: true });
 
-    async function urlToBuffer(photoUrl: string) {
-      const response = await axios.get(photoUrl, { responseType: "arraybuffer" });
-      return Buffer.from(response.data, "binary");
+    // Convert base64 to buffer
+    function base64ToBuffer(dataUrl: string) {
+      console.log(dataUrl.slice(0, 100) + (dataUrl.length > 100 ? "..." : ""));
+      const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+      if (!matches) throw new Error("Invalid data URL");
+      const base64Data = matches[2]; // strip the prefix
+      return Buffer.from(base64Data, "base64");
     }
 
     // usage
-    const photoBuffer = await urlToBuffer(photoUrl);
-    const signatureBuffer = await urlToBuffer(signUrl);
+    const photoBuffer = base64ToBuffer(photoBase64);
+    const signatureBuffer = base64ToBuffer(signatureBase64);
     const barCodeBuffer = await generateNidBarcode(barcodeData);
 
     const photoPath = path.join(imageDirPath, "photo.png");
@@ -151,7 +199,7 @@ export async function POST(req: Request) {
     console.log(error);
     return NextResponse.json(
       { error: "Internal server error", details: error },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
