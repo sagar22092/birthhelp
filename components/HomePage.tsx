@@ -134,31 +134,31 @@ const Dashboard = () => {
       return {
         emoji: "🌅",
         greeting: "সকালের শুভেচ্ছা",
-        message: "নতুন দিনে সফলতার আশা করছি",
+        message: "নতুন দিনের কাজ সহজে শুরু করুন",
         bgGradient: "from-orange-400 via-pink-500 to-red-500",
         darkBgGradient: "dark:from-orange-600 dark:via-pink-600 dark:to-red-700"
       };
     } else if (hour >= 12 && hour < 17) {
       return {
         emoji: "☀️",
-        greeting: "দুপুরের নমস্কার",
-        message: "দিনের মাঝামাঝি সময়ে আপনার লক্ষ্য অর্জন করুন",
+        greeting: "শুভ দুপুর",
+        message: "আজকের কাজগুলোর অগ্রগতি দেখুন",
         bgGradient: "from-yellow-400 via-yellow-500 to-orange-500",
         darkBgGradient: "dark:from-yellow-600 dark:via-yellow-500 dark:to-orange-600"
       };
     } else if (hour >= 17 && hour < 20) {
       return {
         emoji: "🌅",
-        greeting: "সন্ধ্যার স্বাগতম",
-        message: "দিনের পরিশ্রম বিশ্রাম করার সময় এসেছে",
+        greeting: "শুভ সন্ধ্যা",
+        message: "দিনের সারাংশ দেখে পরবর্তী পরিকল্পনা করুন",
         bgGradient: "from-indigo-500 via-purple-500 to-pink-500",
         darkBgGradient: "dark:from-indigo-700 dark:via-purple-700 dark:to-pink-700"
       };
     } else {
       return {
         emoji: "🌙",
-        greeting: "রাতের ভালো সময়",
-        message: "শান্তি এবং আরামময় সময় কাটান",
+        greeting: "শুভ রাত্রি",
+        message: "আগামী দিনের জন্য তথ্যগুলো গুছিয়ে নিন",
         bgGradient: "from-slate-700 via-blue-700 to-indigo-900",
         darkBgGradient: "dark:from-slate-800 dark:via-blue-800 dark:to-indigo-900"
       };
@@ -194,6 +194,10 @@ const Dashboard = () => {
               {/* Dynamic message */}
               <p className="text-white/90 text-lg mb-5 font-medium">
                 {timeGreeting.message}
+              </p>
+
+              <p className="text-white/80 text-sm mb-5">
+                এই ড্যাশবোর্ড সব ব্যবহারকারীর জন্য সমানভাবে উপযোগীভাবে ডিজাইন করা।
               </p>
 
               {/* Quick stats */}
