@@ -116,11 +116,11 @@ const HistoryPage = () => {
     try {
       setLoading(true);
       const response = await fetch("/api/data/ministry/history");
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch history: ${response.status}`);
       }
-      
+
       const data = await response.json();
       setHistory(data);
     } catch (err) {
@@ -436,13 +436,12 @@ const HistoryPage = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            item.gender === "MALE" || item.gender === "M"
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.gender === "MALE" || item.gender === "M"
                               ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                               : item.gender === "FEMALE" || item.gender === "F"
-                              ? "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                          }`}
+                                ? "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                            }`}
                         >
                           {formatGender(item.gender)}
                         </span>
@@ -476,7 +475,7 @@ const HistoryPage = () => {
         {isModalOpen && selectedItem && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
             {/* Background overlay */}
-            <div 
+            <div
               className="fixed inset-0 bg-black bg-opacity-75 transition-opacity"
               onClick={closeModal}
             ></div>
@@ -557,13 +556,12 @@ const HistoryPage = () => {
                             Gender
                           </p>
                           <span
-                            className={`mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              selectedItem.gender === "MALE" || selectedItem.gender === "M"
+                            className={`mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${selectedItem.gender === "MALE" || selectedItem.gender === "M"
                                 ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                                 : selectedItem.gender === "FEMALE" || selectedItem.gender === "F"
-                                ? "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            }`}
+                                  ? "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                              }`}
                           >
                             {formatGender(selectedItem.gender)}
                           </span>

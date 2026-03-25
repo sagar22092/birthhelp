@@ -31,13 +31,26 @@ export default function ServicesPage() {
   const fetchServices = async () => {
     try {
       const response = await fetch('/api/services');
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch services');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.message || `HTTP ${response.status}: Failed to fetch services`;
+        
+        if (response.status === 401) {
+          console.warn('⚠️ [MyServices] Unauthorized - Token may be expired or missing');
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        
+        console.error(`❌ [MyServices] Failed to fetch services (${response.status}):`, errorMsg);
+        throw new Error(errorMsg);
       }
+      
       const data = await response.json();
       setServices(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.error('❌ [MyServices] Error:', errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
