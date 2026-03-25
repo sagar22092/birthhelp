@@ -24,7 +24,7 @@ export async function GET() {
       RegistrationApplication: "Birth Registration Application",
       CurrectionApplication: "Birth Correction Application",
       ApplicationPDF: "Application PDF",
-      MinistryData: "Ministry Data",
+      MinistryData: "Birth Ministry Data",
     };
 
     const serviceIds = Array.from(

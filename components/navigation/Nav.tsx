@@ -12,6 +12,13 @@ import {
   ArrowBigRight,
   BarChart3,
   History,
+  ChevronDown,
+  ChevronRight,
+  IdCard,
+  Baby,
+  Landmark,
+  Folder,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -29,6 +36,26 @@ type MenuItem = {
   label: string;
   icon: React.ReactElement;
   href: string;
+};
+
+type ServiceCategoryId = "nid" | "birth" | "land" | "passport" | "other";
+
+type ServicePayloadItem = {
+  service: {
+    name: string;
+    href: string;
+    note?: string;
+  };
+};
+
+type ServiceCategory = {
+  id: ServiceCategoryId;
+  label: string;
+  icon: React.ReactElement;
+  items: Array<{
+    label: string;
+    href: string;
+  }>;
 };
 
 const menuItemsd: MenuItem[] = [
@@ -60,23 +87,66 @@ const menuItemsd: MenuItem[] = [
   },
 ];
 
-const SERVICES_CACHE_KEY = "nav-services-cache-v1";
+const SERVICES_CACHE_KEY = "nav-services-cache-v2";
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const mergeMenuItems = (
-  baseItems: MenuItem[],
-  extraItems: MenuItem[]
-) => {
-  const seen = new Set<string>();
+const categoryMeta: Record<ServiceCategoryId, { label: string; icon: React.ReactElement }> = {
+  nid: { label: "NID Services", icon: <IdCard size={16} /> },
+  birth: { label: "Birth Registration", icon: <Baby size={16} /> },
+  land: { label: "Land Services", icon: <Landmark size={16} /> },
+  passport: { label: "Passport Services", icon: <ShieldCheck size={16} /> },
+  other: { label: "Other Services", icon: <Folder size={16} /> },
+};
 
-  return [...baseItems, ...extraItems].filter((item) => {
-    if (seen.has(item.href)) {
-      return false;
-    }
+const detectCategory = (name: string, href: string, note?: string): ServiceCategoryId => {
+  const text = `${name} ${href} ${note || ""}`.toLowerCase();
 
-    seen.add(item.href);
-    return true;
-  });
+  if (/\bnid\b|national id|smart card|voter|voter id|nidmake|nid/.test(text)) {
+    return "nid";
+  }
+
+  if (/birth|bdris|brn|jonmo|janma/.test(text)) {
+    return "birth";
+  }
+
+  if (/land|ldtax|dakhila|khatian|mutation|bhumi|bhoomi|jom[iy]|plot/.test(text)) {
+    return "land";
+  }
+
+  if (/passport/.test(text)) {
+    return "passport";
+  }
+
+  return "other";
+};
+
+const buildServiceCategories = (data: ServicePayloadItem[]): ServiceCategory[] => {
+  const grouped: Record<ServiceCategoryId, Array<{ label: string; href: string }>> = {
+    nid: [],
+    birth: [],
+    land: [],
+    passport: [],
+    other: [],
+  };
+
+  for (const item of data) {
+    if (!item?.service?.name || !item?.service?.href) continue;
+
+    const categoryId = detectCategory(item.service.name, item.service.href, item.service.note);
+    grouped[categoryId].push({
+      label: item.service.name,
+      href: item.service.href,
+    });
+  }
+
+  return (Object.keys(categoryMeta) as ServiceCategoryId[])
+    .map((id) => ({
+      id,
+      label: categoryMeta[id].label,
+      icon: categoryMeta[id].icon,
+      items: grouped[id],
+    }))
+    .filter((category) => category.items.length > 0);
 };
 
 export default function Nav({ children }: { children: React.ReactNode }) {
@@ -86,7 +156,8 @@ export default function Nav({ children }: { children: React.ReactNode }) {
   const { user, isLoggedIn } = useAppSelector((state) => state.userAuth);
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(menuItemsd);
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const telegramPopupKey = user?._id || user?.email || user?.username;
   useEffect(() => {
     let prevWidth = window.innerWidth;
@@ -116,6 +187,22 @@ export default function Nav({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!serviceCategories.length) return;
+
+    setExpandedCategories((previous) => {
+      const updated = { ...previous };
+
+      for (const category of serviceCategories) {
+        if (updated[category.id] === undefined) {
+          updated[category.id] = category.items.some((item) => item.href === pathname);
+        }
+      }
+
+      return updated;
+    });
+  }, [serviceCategories, pathname]);
+
   // Fetch user profile and counts
   useEffect(() => {
     if (pathname.startsWith("/reseller") || pathname === "/login" || pathname.startsWith("/admin")) return;
@@ -127,18 +214,10 @@ export default function Nav({ children }: { children: React.ReactNode }) {
           try {
             const parsed = JSON.parse(cachedRaw) as {
               timestamp: number;
-              items: Array<{ label: string; href: string }>;
+              items: ServicePayloadItem[];
             };
             if (Date.now() - parsed.timestamp < SERVICES_CACHE_TTL_MS) {
-              setMenuItems(
-                mergeMenuItems(
-                  menuItemsd,
-                  parsed.items.map((item) => ({
-                    ...item,
-                    icon: <ArrowBigRight size={20} />,
-                  }))
-                )
-              );
+              setServiceCategories(buildServiceCategories(parsed.items));
             }
           } catch {
             sessionStorage.removeItem(SERVICES_CACHE_KEY);
@@ -152,29 +231,15 @@ export default function Nav({ children }: { children: React.ReactNode }) {
           ]);
           dispatch(updateUser(profileResponse.data));
 
-          const data = servicesResponse.data;
-          const newNavItems = data.map(
-            ({
-              service: { name, href },
-            }: {
-              service: { name: string; href: string };
-            }) => ({
-              label: name,
-              icon: <ArrowBigRight size={20} />,
-              href,
-            })
-          );
-
-          const cacheItems = newNavItems.map(({ label, href }: { label: string; href: string }) => ({ label, href }));
+          const data = Array.isArray(servicesResponse.data) ? servicesResponse.data : [];
+          setServiceCategories(buildServiceCategories(data));
           sessionStorage.setItem(
             SERVICES_CACHE_KEY,
             JSON.stringify({
               timestamp: Date.now(),
-              items: cacheItems,
+              items: data,
             })
           );
-
-          setMenuItems(mergeMenuItems(menuItemsd, newNavItems));
         } catch (error) {
           console.log(error);
         }
@@ -207,6 +272,13 @@ export default function Nav({ children }: { children: React.ReactNode }) {
 
     fetchData();
   }, [dispatch, pathname, router]);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((previous) => ({
+      ...previous,
+      [categoryId]: !previous[categoryId],
+    }));
+  };
 
   if (!mounted) {
     return null;
@@ -283,7 +355,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
             text-gray-900 dark:text-gray-100 shadow-lg
             ${collapsed ? "w-20" : "w-64"}`}
         >
-          {menuItems.map((item) => (
+          {menuItemsd.map((item) => (
             <Link
               key={item?.href}
               href={item?.href}
@@ -303,6 +375,52 @@ export default function Nav({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
           ))}
+
+          {!collapsed && serviceCategories.length > 0 && (
+            <div className="mt-2 px-2">
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Service Categories
+              </div>
+              {serviceCategories.map((category) => {
+                const isExpanded = expandedCategories[category.id] ?? false;
+
+                return (
+                  <div key={category.id} className="mb-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category.id)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-indigo-200/70 dark:hover:bg-teal-700/50 transition-all"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-medium">
+                        {category.icon}
+                        {category.label}
+                      </span>
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="ml-3 mt-1 space-y-1 border-l border-gray-300 dark:border-gray-700 pl-2">
+                        {category.items.map((service) => (
+                          <Link
+                            key={service.href}
+                            href={service.href}
+                            className={`flex items-center p-2 rounded-md text-sm transition-all ${pathname === service.href
+                                ? "bg-blue-200/70 dark:bg-blue-700/50 font-semibold"
+                                : "hover:bg-indigo-200/70 dark:hover:bg-teal-700/50"
+                              }`}
+                          >
+                            <ArrowBigRight size={16} />
+                            <span className="ml-2">{service.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="mt-auto mb-4">
             <Link
               href="/profile"
@@ -337,7 +455,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
             } flex flex-col`}
         >
           <div className="flex-1 m-2">
-            {menuItems.map((item) => (
+            {menuItemsd.map((item) => (
               <Link
                 key={item?.href}
                 href={item?.href}
@@ -354,6 +472,53 @@ export default function Nav({ children }: { children: React.ReactNode }) {
                 <span className="ml-3 font-medium">{item?.label}</span>
               </Link>
             ))}
+
+            {serviceCategories.length > 0 && (
+              <div className="mt-3 px-2">
+                <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Service Categories
+                </div>
+
+                {serviceCategories.map((category) => {
+                  const isExpanded = expandedCategories[category.id] ?? false;
+
+                  return (
+                    <div key={category.id} className="mb-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(category.id)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-indigo-200/70 dark:hover:bg-teal-700/50 transition-all"
+                      >
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          {category.icon}
+                          {category.label}
+                        </span>
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="ml-3 mt-1 space-y-1 border-l border-gray-300 dark:border-gray-700 pl-2">
+                          {category.items.map((service) => (
+                            <Link
+                              key={service.href}
+                              href={service.href}
+                              onClick={() => setMobileOpen(false)}
+                              className={`flex items-center p-2 rounded-md text-sm transition-all ${pathname === service.href
+                                  ? "bg-indigo-300/80 dark:bg-blue-700/60 font-semibold"
+                                  : "hover:bg-indigo-200/70 dark:hover:bg-teal-700/50"
+                                }`}
+                            >
+                              <ArrowBigRight size={16} />
+                              <span className="ml-2">{service.label}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="mb-4">
