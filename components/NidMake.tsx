@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -12,59 +12,12 @@ export default function NIDPdfUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const handleFileChange = (selectedFile: File) => {
-    if (selectedFile) {
-      if (selectedFile.type === "application/pdf") {
-        setFile(selectedFile);
-        setError(null);
-      } else {
-        setError("Please select a PDF file");
-        setFile(null);
-      }
-    }
-  };
-
-  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      handleFileChange(selectedFile);
-    }
-  };
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
-      const droppedFile = droppedFiles[0];
-      handleFileChange(droppedFile);
-    }
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!file) {
-      setError("Please select a PDF file");
-      return;
-    }
-
+  const uploadFile = async (fileToUpload: File) => {
     setIsUploading(true);
     setError(null);
 
     const formData = new FormData();
-    formData.append("profile_pdf", file);
+    formData.append("profile_pdf", fileToUpload);
 
     try {
       const response = await fetch("/api/nid/pdf/extract", {
@@ -88,6 +41,47 @@ export default function NIDPdfUpload() {
     }
   };
 
+  const handleFileChange = async (selectedFile: File) => {
+    if (selectedFile) {
+      if (selectedFile.type === "application/pdf") {
+        setFile(selectedFile);
+        setError(null);
+        await uploadFile(selectedFile);
+      } else {
+        setError("Please select a PDF file");
+        setFile(null);
+      }
+    }
+  };
+
+  const onFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      await handleFileChange(selectedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length > 0) {
+      const droppedFile = droppedFiles[0];
+      await handleFileChange(droppedFile);
+    }
+  };
+
   const removeFile = () => {
     setFile(null);
     if (fileInputRef.current) {
@@ -106,25 +100,32 @@ export default function NIDPdfUpload() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            NID PDF Data Extraction
+            NID Make
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Upload a National ID PDF to extract personal information
+            PDF সিলেক্ট বা ড্রপ করলেই স্বয়ংক্রিয়ভাবে ডাটা প্রসেস হবে
           </p>
+          <div className="mt-4">
+            <Link
+              href="/nid/history"
+              className="inline-flex items-center rounded-lg border border-blue-200 dark:border-blue-800 px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+            >
+              View History
+            </Link>
+          </div>
         </div>
 
         {/* Upload Form */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
             {/* Drag and Drop Area */}
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
-                isDragOver
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${isDragOver
                   ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                   : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
-              }`}
+                }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -151,8 +152,9 @@ export default function NIDPdfUpload() {
 
                   <button
                     type="button"
+                    disabled={isUploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200"
                   >
                     Browse Files
                   </button>
@@ -247,46 +249,31 @@ export default function NIDPdfUpload() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={!file || isUploading}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed dark:focus:ring-offset-gray-800 transition-all duration-200"
-            >
-              {isUploading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Extracting Data...
-                </>
-              ) : (
-                "Extract NID Data"
-              )}
-            </button>
-            <Link href={'/nid/history'}>
-              <button
-                className="bg-blue-500 hover:bg-blue-700 dark:bg-blue-900 dark:hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
-              >
-                History
-              </button>
-            </Link>
-          </form>
+            {isUploading && (
+              <div className="w-full flex justify-center items-center py-3 px-4 rounded-md text-sm font-medium text-white bg-blue-600">
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Extracting Data...
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

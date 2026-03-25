@@ -49,14 +49,14 @@ type HistoryItem = {
   occupation: string;
   disability: string;
   disability_other: string;
-  present_address: Address;
-  permanent_address: Address;
+  present_address?: Address;
+  permanent_address?: Address;
   education: string;
   blood_group: string;
   religion: string;
   present_address_full: string;
   permanent_address_full: string;
-  addresses_same: boolean;
+  addresses_same?: boolean;
   tin: string;
   driving_lic: string;
   passport: string;
@@ -142,7 +142,7 @@ export default function NidHistoryPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
             NID Application History
           </h1>
-          
+
           {history.length > 0 && (
             <div className="flex items-center gap-3">
               <button
@@ -170,7 +170,7 @@ export default function NidHistoryPage() {
         <div className="space-y-4">
           {history.map((item, index) => {
             const isExpanded = expandedItems.has(item._id);
-            
+
             return (
               <div
                 key={item._id}
@@ -187,7 +187,7 @@ export default function NidHistoryPage() {
                     ) : (
                       <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     )}
-                    
+
                     <div className="text-left">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -198,7 +198,7 @@ export default function NidHistoryPage() {
                           <StatusBadge status={item.citizen_status} label="Citizen" />
                         </div>
                       </div>
-                      
+
                       <div className="mt-1 flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span>NID: {item.nid}</span>
                         <span>Voter ID: {item.voter_no}</span>
@@ -209,7 +209,7 @@ export default function NidHistoryPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/nid/edit/${item._id}`}
@@ -219,7 +219,7 @@ export default function NidHistoryPage() {
                       <Edit className="w-4 h-4" />
                       <span className="hidden sm:inline">Edit</span>
                     </Link>
-                    
+
                     <Link
                       href={`/nid/pdf/${item._id}`}
                       className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
@@ -281,12 +281,12 @@ export default function NidHistoryPage() {
                             Present Address
                           </h4>
                           <div className="space-y-3">
-                            <AddressField label="Division" value={item.present_address.division} />
-                            <AddressField label="District" value={item.present_address.district} />
-                            <AddressField label="Upozila" value={item.present_address.upozila} />
-                            <AddressField label="Union/Ward" value={item.present_address.union_ward} />
-                            <AddressField label="Post Office" value={item.present_address.post_office} />
-                            <AddressField label="Postal Code" value={item.present_address.postal_code} />
+                            <AddressField label="Division" value={item.present_address?.division || ""} />
+                            <AddressField label="District" value={item.present_address?.district || ""} />
+                            <AddressField label="Upozila" value={item.present_address?.upozila || ""} />
+                            <AddressField label="Union/Ward" value={item.present_address?.union_ward || ""} />
+                            <AddressField label="Post Office" value={item.present_address?.post_office || ""} />
+                            <AddressField label="Postal Code" value={item.present_address?.postal_code || ""} />
                           </div>
                         </div>
 
@@ -303,12 +303,12 @@ export default function NidHistoryPage() {
                             )}
                           </div>
                           <div className="space-y-3">
-                            <AddressField label="Division" value={item.permanent_address.division} />
-                            <AddressField label="District" value={item.permanent_address.district} />
-                            <AddressField label="Upozila" value={item.permanent_address.upozila} />
-                            <AddressField label="Union/Ward" value={item.permanent_address.union_ward} />
-                            <AddressField label="Post Office" value={item.permanent_address.post_office} />
-                            <AddressField label="Postal Code" value={item.permanent_address.postal_code} />
+                            <AddressField label="Division" value={item.permanent_address?.division || ""} />
+                            <AddressField label="District" value={item.permanent_address?.district || ""} />
+                            <AddressField label="Upozila" value={item.permanent_address?.upozila || ""} />
+                            <AddressField label="Union/Ward" value={item.permanent_address?.union_ward || ""} />
+                            <AddressField label="Post Office" value={item.permanent_address?.post_office || ""} />
+                            <AddressField label="Postal Code" value={item.permanent_address?.postal_code || ""} />
                           </div>
                         </div>
                       </div>
@@ -340,18 +340,18 @@ export default function NidHistoryPage() {
                           <p>Updated at: {new Date(item.updatedAt).toLocaleString()}</p>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center gap-3">
                         <Link
-                          href={`/edit/${item._id}`}
+                          href={`/nid/edit/${item._id}`}
                           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                           Edit Record
                         </Link>
-                        
+
                         <Link
-                          href={`/pdf/${item._id}`}
+                          href={`/nid/pdf/${item._id}`}
                           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-700 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
                         >
                           <FileText className="w-4 h-4" />
@@ -372,12 +372,12 @@ export default function NidHistoryPage() {
 
 /* Reusable Components */
 
-function Section({ 
-  title, 
-  children 
-}: { 
-  title: string; 
-  children: React.ReactNode 
+function Section({
+  title,
+  children
+}: {
+  title: string;
+  children: React.ReactNode
 }) {
   return (
     <div className="space-y-3">
@@ -411,9 +411,9 @@ function AddressField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const getStatusColor = (status: string) => {
-    const lowerStatus = status.toLowerCase();
+function StatusBadge({ status, label }: { status?: string; label?: string }) {
+  const getStatusColor = (status?: string) => {
+    const lowerStatus = (status ?? "").toLowerCase();
     if (lowerStatus.includes('checked') || lowerStatus.includes('citizen') || lowerStatus.includes('unlocked')) {
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
@@ -428,7 +428,7 @@ function StatusBadge({ status, label }: { status: string; label?: string }) {
 
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-      {label ? `${label}: ${status}` : status}
+      {label ? `${label}: ${status || "N/A"}` : status || "N/A"}
     </span>
   );
 }

@@ -154,6 +154,6 @@ const NidDataSchema: Schema = new Schema({
   no_finger_print: String,
   voter_area: String,
   voter_at: String,
-});
+}, { timestamps: true });
 
 export default mongoose.models.NidData || mongoose.model<INidData>("NidData", NidDataSchema);

@@ -33,6 +33,24 @@ const NIDCard: React.FC = () => {
   const id = params.id as string;
   const { user } = useAppSelector((state) => state.userAuth);
   const router = useRouter();
+
+  const sanitizeExtractedText = (value?: string) => {
+    if (!value) return "";
+    return value
+      .replace(/Voter\s*Documents/gi, "")
+      .replace(/No\s*Documents\s*Available/gi, "")
+      .replace(/Smart\s*Card\s*Info/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  };
+
+  const normalizeBloodGroup = (value?: string) => {
+    const cleaned = sanitizeExtractedText(value);
+    const match = cleaned.match(/\b(AB|A|B|O)\s*([+-])\b/i);
+    if (!match) return "N/A";
+    return `${match[1].toUpperCase()}${match[2]}`;
+  };
+
   const getIssueDate = () => {
     const date = new Date();
     const day = String(date.getDate()).padStart(2, "0");
@@ -58,18 +76,18 @@ const NIDCard: React.FC = () => {
         router.push(`/nid/edit/${id}`);
       }
       const data: NIDData = {
-        nameBn: resData.data.name_bn,
-        nameEn: resData.data.name_en,
-        fatherNameBn: resData.data.father_name,
-        motherNameBn: resData.data.mother_name,
+        nameBn: sanitizeExtractedText(resData.data.name_bn),
+        nameEn: sanitizeExtractedText(resData.data.name_en),
+        fatherNameBn: sanitizeExtractedText(resData.data.father_name),
+        motherNameBn: sanitizeExtractedText(resData.data.mother_name),
         dateOfBirth: resData.data.dob,
         nidNumber: resData.data.nid,
-        bloodGroup: resData.data.blood_group,
-        birthPlaceBn: resData.data.birth_place,
+        bloodGroup: normalizeBloodGroup(resData.data.blood_group),
+        birthPlaceBn: sanitizeExtractedText(resData.data.birth_place),
         addressBn:
           resData.data.voter_at === "present"
-            ? resData.data.present_address_full
-            : resData.data.permanent_address_full,
+            ? sanitizeExtractedText(resData.data.present_address_full)
+            : sanitizeExtractedText(resData.data.permanent_address_full),
         photo: resData.data.photo,
         signature: resData.data.signature,
         adminSignature: "/images/sign-administrator.jpg",

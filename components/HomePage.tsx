@@ -8,13 +8,16 @@ import {
   ArrowDownLeft,
   CreditCard,
   Wallet,
-  PieChart,
+  BarChart3,
   Activity,
+  Zap,
+  CircleDot,
 } from "lucide-react";
 import { useAppSelector } from "@/lib/hooks";
 import axios from "axios";
 
-// Type definitions
+// ─── Type Definitions ────────────────────────────────────────────────────────
+
 interface SpentItem {
   _id: string;
   user: string;
@@ -45,465 +48,419 @@ interface DashboardData {
 interface Calculations {
   totalSpent: number;
   totalRecharged: number;
+  balance: number;
   spentCount: number;
   rechargeCount: number;
   usageRate: number;
 }
 
-const Dashboard = () => {
-  const [data, setData] = React.useState<DashboardData>({
-    spentList: [],
-    recharges: [],
-  });
+// ─── Greeting Config ──────────────────────────────────────────────────────────
 
-  const { user } = useAppSelector((state) => state.userAuth);
-  const fetchData = async () => {
-    try {
-      const res = await axios.get(`/api/home`, { withCredentials: true });
-      setData(res.data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
+const getTimeGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12)
+    return { label: "সুপ্রভাত", sub: "আজকের আর্থিক কার্যক্রম পরিকল্পনা করুন", hue: "from-cyan-500 to-sky-600" };
+  if (hour >= 12 && hour < 17)
+    return { label: "শুভ দুপুর", sub: "দিনের অগ্রগতি ও লেনদেন পর্যবেক্ষণ করুন", hue: "from-emerald-500 to-teal-600" };
+  if (hour >= 17 && hour < 20)
+    return { label: "শুভ সন্ধ্যা", sub: "দিনের সারাংশ পর্যালোচনা করুন", hue: "from-amber-500 to-orange-600" };
+  return { label: "শুভ রাত্রি", sub: "পরবর্তী দিনের জন্য প্রস্তুতি সম্পন্ন করুন", hue: "from-slate-500 to-slate-700" };
+};
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    SUCCESS: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25 before:bg-emerald-400",
+    PENDING: "bg-amber-500/15 text-amber-400 border-amber-500/25 before:bg-amber-400",
+    FAILED: "bg-red-500/15 text-red-400 border-red-500/25 before:bg-red-400",
   };
+  return (
+    <span
+      className={`relative inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border ${map[status] ?? "bg-slate-500/15 text-slate-400 border-slate-500/25 before:bg-slate-400"}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+      {status}
+    </span>
+  );
+};
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  sub: string;
+  accent: string;
+  glow: string;
+}
+
+const StatCard = ({ icon, value, label, sub, accent, glow }: StatCardProps) => (
+  <div
+    className={`group relative rounded-2xl p-6 bg-[#0f1117] border border-white/[0.06] overflow-hidden transition-all duration-500 hover:border-white/[0.14] hover:shadow-2xl ${glow}`}
+  >
+    {/* Background shimmer */}
+    <div
+      className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-br ${accent} blur-2xl scale-150`}
+    />
+    <div className="relative z-10">
+      <div className={`inline-flex p-2.5 rounded-xl bg-gradient-to-br ${accent} mb-5 shadow-lg`}>
+        {icon}
+      </div>
+      <p className="text-3xl font-black text-white tracking-tight font-mono mb-1">
+        {value}
+      </p>
+      <p className="text-sm text-white/50 font-medium">{label}</p>
+      <p className={`mt-2 text-xs font-semibold bg-gradient-to-r ${accent} bg-clip-text text-transparent`}>
+        {sub}
+      </p>
+    </div>
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const Dashboard = () => {
+  const [data, setData] = React.useState<DashboardData>({ spentList: [], recharges: [] });
+  const { user } = useAppSelector((state) => state.userAuth);
 
   useEffect(() => {
-    fetchData();
+    axios
+      .get(`/api/home`, { withCredentials: true })
+      .then((res) => setData(res.data))
+      .catch(console.error);
   }, []);
 
-  const calculations: Calculations = useMemo(() => {
-    const totalSpent = data.spentList.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-
-    const successfulRecharges = data.recharges.filter(
-      (item) => item.status === "SUCCESS"
-    );
-
-    const totalRecharged = successfulRecharges.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-    const balance = totalRecharged - totalSpent;
-    const usageRate =
-      totalRecharged > 0 ? (totalSpent / totalRecharged) * 100 : 0;
-
+  const calc: Calculations = useMemo(() => {
+    const totalSpent = data.spentList.reduce((s, i) => s + i.amount, 0);
+    const successful = data.recharges.filter((i) => i.status === "SUCCESS");
+    const totalRecharged = successful.reduce((s, i) => s + i.amount, 0);
     return {
       totalSpent,
       totalRecharged,
-      balance,
+      balance: totalRecharged - totalSpent,
       spentCount: data.spentList.length,
-      rechargeCount: successfulRecharges.length,
-      usageRate,
+      rechargeCount: successful.length,
+      usageRate: totalRecharged > 0 ? (totalSpent / totalRecharged) * 100 : 0,
     };
   }, [data]);
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const fmt = (n: number) => `৳${n.toLocaleString()}`;
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
     });
-  };
 
-  const formatCurrency = (amount: number): string => {
-    return `৳${amount.toLocaleString()}`;
-  };
+  const greet = getTimeGreeting();
 
-  const getStatusColor = (status: string): string => {
-    const baseClasses = "inline-block text-xs px-2 py-1 rounded-full border";
-    switch (status) {
-      case "SUCCESS":
-        return `${baseClasses} bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30`;
-      case "PENDING":
-        return `${baseClasses} bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30`;
-      case "FAILED":
-        return `${baseClasses} bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30`;
-      default:
-        return `${baseClasses} bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30`;
-    }
-  };
-
-  // Get time-based welcome message
-  const getTimeBasedGreeting = () => {
-    const hour = new Date().getHours();
-    
-    if (hour >= 5 && hour < 12) {
-      return {
-        emoji: "🌅",
-        greeting: "সকালের শুভেচ্ছা",
-        message: "নতুন দিনের কাজ সহজে শুরু করুন",
-        bgGradient: "from-orange-400 via-pink-500 to-red-500",
-        darkBgGradient: "dark:from-orange-600 dark:via-pink-600 dark:to-red-700"
-      };
-    } else if (hour >= 12 && hour < 17) {
-      return {
-        emoji: "☀️",
-        greeting: "শুভ দুপুর",
-        message: "আজকের কাজগুলোর অগ্রগতি দেখুন",
-        bgGradient: "from-yellow-400 via-yellow-500 to-orange-500",
-        darkBgGradient: "dark:from-yellow-600 dark:via-yellow-500 dark:to-orange-600"
-      };
-    } else if (hour >= 17 && hour < 20) {
-      return {
-        emoji: "🌅",
-        greeting: "শুভ সন্ধ্যা",
-        message: "দিনের সারাংশ দেখে পরবর্তী পরিকল্পনা করুন",
-        bgGradient: "from-indigo-500 via-purple-500 to-pink-500",
-        darkBgGradient: "dark:from-indigo-700 dark:via-purple-700 dark:to-pink-700"
-      };
-    } else {
-      return {
-        emoji: "🌙",
-        greeting: "শুভ রাত্রি",
-        message: "আগামী দিনের জন্য তথ্যগুলো গুছিয়ে নিন",
-        bgGradient: "from-slate-700 via-blue-700 to-indigo-900",
-        darkBgGradient: "dark:from-slate-800 dark:via-blue-800 dark:to-indigo-900"
-      };
-    }
-  };
-
-  const timeGreeting = getTimeBasedGreeting();
+  const allTxns = useMemo(
+    () =>
+      [
+        ...data.recharges.map((r) => ({ ...r, type: "recharge" as const })),
+        ...data.spentList.map((s) => ({ ...s, type: "spent" as const })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [data]
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 sm:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto">
-        {/* Welcome Banner - Time Based */}
-        <div className={`mb-8 bg-gradient-to-r ${timeGreeting.bgGradient} ${timeGreeting.darkBgGradient} rounded-3xl p-8 text-white shadow-2xl overflow-hidden relative`}>
-          {/* Animated background pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
-          </div>
+    <>
+      {/* Google Fonts */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Geist+Mono:wght@400;600;700&family=Geist:wght@300;400;500;600&display=swap');
 
-          <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="flex-1">
-              {/* Time-based greeting */}
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-5xl animate-bounce">{timeGreeting.emoji}</span>
-                <div>
-                  <p className="text-white/80 text-sm font-medium mb-1">{new Date().toLocaleDateString('bn-BD', { weekday: 'long' })}</p>
-                  <h1 className="text-3xl sm:text-4xl font-bold">
-                    {timeGreeting.greeting}, {user?.name?.split(' ')[0]}!
+        .dash-root { font-family: 'Geist', sans-serif; }
+        .dash-display { font-family: 'Syne', sans-serif; }
+        .dash-mono { font-family: 'Geist Mono', monospace; }
+
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+        .fade-up-1 { animation-delay: 0.05s; }
+        .fade-up-2 { animation-delay: 0.12s; }
+        .fade-up-3 { animation-delay: 0.19s; }
+        .fade-up-4 { animation-delay: 0.26s; }
+        .fade-up-5 { animation-delay: 0.33s; }
+        .fade-up-6 { animation-delay: 0.40s; }
+
+        .noise-bg::before {
+          content: '';
+          position: absolute; inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+          background-size: 160px;
+          pointer-events: none;
+          z-index: 0;
+          border-radius: inherit;
+        }
+      `}</style>
+
+      <div className="dash-root min-h-screen bg-[#070d14] text-white">
+        {/* Ambient background orbs */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-48 -left-48 w-[600px] h-[600px] bg-cyan-500/12 rounded-full blur-[120px]" />
+          <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-amber-500/8 rounded-full blur-[100px]" />
+        </div>
+
+        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+          {/* ── Hero Banner ─────────────────────────────────────────────── */}
+          <div className="fade-up fade-up-1 noise-bg relative rounded-3xl overflow-hidden mb-8 border border-white/[0.07]">
+            <div className={`absolute inset-0 bg-gradient-to-r ${greet.hue} opacity-20`} />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#080a0f]/80" />
+
+            {/* Decorative ring */}
+            <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full border border-white/5" />
+            <div className="absolute -right-8 -top-8 w-48 h-48 rounded-full border border-white/5" />
+
+            <div className="relative z-10 p-8 sm:p-10 flex items-center justify-between gap-6">
+              <div className="flex-1">
+                <div className="mb-4">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-semibold tracking-[0.16em] uppercase text-white/70 mb-3">
+                    Operations Dashboard
+                  </span>
+                  <p className="text-white/40 text-xs font-semibold tracking-widest uppercase mb-1">
+                    {new Date().toLocaleDateString("bn-BD", { weekday: "long" })}
+                  </p>
+                  <h1 className="dash-display text-2xl sm:text-3xl font-extrabold text-white leading-none">
+                    {greet.label},{" "}
+                    <span className={`bg-gradient-to-r ${greet.hue} bg-clip-text text-transparent`}>
+                      {user?.name?.split(" ")[0]}!
+                    </span>
                   </h1>
+                </div>
+
+                <p className="text-white/60 text-sm mb-6">{greet.sub}</p>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "সফল লেনদেন", value: `${calc.rechargeCount}টি` },
+                    { label: "ব্যবহারের হার", value: `${calc.usageRate.toFixed(0)}%` },
+                    {
+                      label: "অবস্থা",
+                      value: user.balance >= 0 ? "ইতিবাচক ভারসাম্য" : "নেতিবাচক ভারসাম্য",
+                    },
+                  ].map((chip) => (
+                    <span
+                      key={chip.label}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/8 border border-white/10 text-sm text-white/70 backdrop-blur-sm hover:bg-white/12 transition-colors"
+                    >
+                      <span className="text-white/40 uppercase text-[10px] tracking-widest">{chip.label}</span>
+                      <span className="text-white/80 font-medium">{chip.value}</span>
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              {/* Dynamic message */}
-              <p className="text-white/90 text-lg mb-5 font-medium">
-                {timeGreeting.message}
-              </p>
+              {/* Balance pill */}
+              <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                <p className="text-white/30 text-xs uppercase tracking-widest font-semibold">Current Balance</p>
+                <p className="dash-mono text-3xl font-bold text-white">{fmt(user.balance)}</p>
+                <div
+                  className={`mt-1 h-1 w-24 rounded-full bg-gradient-to-r ${greet.hue}`}
+                  style={{ opacity: 0.7 }}
+                />
+              </div>
+            </div>
+          </div>
 
-              <p className="text-white/80 text-sm mb-5">
-                এই ড্যাশবোর্ড সব ব্যবহারকারীর জন্য সমানভাবে উপযোগীভাবে ডিজাইন করা।
-              </p>
+          {/* ── Stats Bento Grid ────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="fade-up fade-up-2">
+              <StatCard
+                icon={<Wallet className="w-5 h-5 text-white" />}
+                value={fmt(calc.totalRecharged)}
+                label="মোট চার্জ"
+                sub={`${calc.rechargeCount}টি সফল লেনদেন`}
+                accent="from-emerald-500/30 to-teal-600/30"
+                glow="hover:shadow-emerald-900/60"
+              />
+            </div>
+            <div className="fade-up fade-up-3">
+              <StatCard
+                icon={<CreditCard className="w-5 h-5 text-white" />}
+                value={fmt(calc.totalSpent)}
+                label="মোট খরচ"
+                sub={`${calc.spentCount}টি ব্যয়`}
+                accent="from-rose-500/30 to-pink-600/30"
+                glow="hover:shadow-rose-900/60"
+              />
+            </div>
+            <div className="fade-up fade-up-4">
+              <StatCard
+                icon={<DollarSign className="w-5 h-5 text-white" />}
+                value={fmt(user.balance)}
+                label="বর্তমান ভারসাম্য"
+                sub={user.balance >= 0 ? "ব্যবহারের জন্য প্রস্তুত" : "ব্যয় পুনর্বিন্যাস প্রয়োজন"}
+                accent={user.balance >= 0 ? "from-blue-500/30 to-cyan-600/30" : "from-amber-500/30 to-orange-600/30"}
+                glow={user.balance >= 0 ? "hover:shadow-blue-900/60" : "hover:shadow-amber-900/60"}
+              />
+            </div>
+            <div className="fade-up fade-up-5">
+              <StatCard
+                icon={<BarChart3 className="w-5 h-5 text-white" />}
+                value={`${calc.usageRate.toFixed(1)}%`}
+                label="ব্যবহারের হার"
+                sub="চার্জ করা পরিমাণের"
+                accent="from-cyan-500/30 to-sky-600/30"
+                glow="hover:shadow-cyan-900/60"
+              />
+            </div>
+          </div>
 
-              {/* Quick stats */}
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-white/30 transition-all">
-                  💳 {calculations.rechargeCount}টি লেনদেন
+          {/* Usage Bar */}
+          <div className="fade-up fade-up-5 mb-8 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-semibold text-white/70">Usage Overview</span>
+              </div>
+              <span className="dash-mono text-sm font-bold text-cyan-400">{calc.usageRate.toFixed(1)}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 transition-all duration-1000"
+                style={{ width: `${Math.min(calc.usageRate, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-2.5">
+              <span className="text-xs text-white/30 dash-mono">৳0</span>
+              <span className="text-xs text-white/30 dash-mono">{fmt(calc.totalRecharged)}</span>
+            </div>
+          </div>
+
+          {/* ── Transaction Lists ────────────────────────────────────────── */}
+          <div className="fade-up fade-up-6 grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+
+            {/* Recharge History */}
+            <div className="rounded-2xl bg-[#0f1117] border border-white/[0.06] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-emerald-500/15 rounded-lg">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <h2 className="font-semibold text-white/90 text-sm">Recharge History</h2>
+                </div>
+                <span className="dash-mono text-xs px-2.5 py-1 rounded-full bg-white/5 text-white/40 border border-white/[0.06]">
+                  {calc.rechargeCount}
                 </span>
-                <span className="px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-white/30 transition-all">
-                  📊 {calculations.usageRate.toFixed(0)}% ব্যবহৃত
-                </span>
-                {user.balance >= 0 ? (
-                  <span className="px-3 py-2 bg-emerald-400/40 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-emerald-400/50 transition-all">
-                    ✅ ভারসাম্য ইতিবাচক
-                  </span>
-                ) : (
-                  <span className="px-3 py-2 bg-red-400/40 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-red-400/50 transition-all">
-                    ⚠️ ভারসাম্য নেতিবাচক
-                  </span>
+              </div>
+
+              <div className="overflow-y-auto max-h-80 scrollbar-thin divide-y divide-white/[0.04]">
+                {data.recharges.map((r) => (
+                  <div key={r._id} className="flex items-center justify-between px-6 py-3.5 hover:bg-white/[0.03] transition-colors group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/15 transition-colors">
+                        <Wallet className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white/80 text-sm font-medium truncate">{r.method}</p>
+                        <p className="text-white/30 text-xs dash-mono truncate">{r.trxId}</p>
+                        <p className="text-white/20 text-[11px] mt-0.5">{fmtDate(r.createdAt)}</p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right ml-3">
+                      <p className="dash-mono text-emerald-400 font-bold text-sm">+{fmt(r.amount)}</p>
+                      <div className="mt-1">
+                        <StatusBadge status={r.status} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {data.recharges.length === 0 && (
+                  <p className="text-center text-white/20 text-sm py-10">কোনো ডেটা নেই</p>
                 )}
               </div>
             </div>
 
-            {/* Animated icon */}
-            <div className="hidden sm:flex items-center justify-center w-28 h-28 bg-white/10 backdrop-blur-sm rounded-2xl animate-pulse">
-              <span className="text-6xl">{timeGreeting.emoji}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            আপনার আর্থিক সারসংক্ষেপ
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400">
-            রিয়েল-টাইমে আপনার খরচ এবং চার্জ ট্র্যাক করুন
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          {/* Total Recharged */}
-          <div className="group bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-500/10 rounded-xl">
-                <Wallet className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              {formatCurrency(calculations.totalRecharged)}
-            </p>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">
-              💰 মোট চার্জ
-            </p>
-            <div className="mt-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-              {calculations.rechargeCount}টি লেনদেন
-            </div>
-          </div>
-
-          {/* Total Spent */}
-          <div className="group bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-rose-100 dark:bg-rose-500/10 rounded-xl">
-                <CreditCard className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-              </div>
-              <ArrowDownLeft className="w-5 h-5 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              {formatCurrency(calculations.totalSpent)}
-            </p>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">
-              💸 মোট খরচ
-            </p>
-            <div className="mt-2 text-rose-600 dark:text-rose-400 text-sm font-medium">
-              {calculations.spentCount}টি লেনদেন
-            </div>
-          </div>
-
-          {/* Balance */}
-          <div
-            className={`group bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border transition-all duration-300 hover:shadow-lg ${
-              user.balance >= 0
-                ? "border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 hover:shadow-blue-500/10 dark:hover:shadow-blue-500/10"
-                : "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-500/50 hover:shadow-amber-500/10 dark:hover:shadow-amber-500/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div
-                className={`p-2 rounded-xl ${
-                  user.balance >= 0
-                    ? "bg-blue-100 dark:bg-blue-500/10"
-                    : "bg-amber-100 dark:bg-amber-500/10"
-                }`}
-              >
-                <DollarSign
-                  className={`w-6 h-6 ${
-                    user.balance >= 0
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-amber-600 dark:text-amber-400"
-                  }`}
-                />
-              </div>
-              <Activity
-                className={`w-5 h-5 ${
-                  user.balance >= 0
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-amber-600 dark:text-amber-400"
-                } group-hover:scale-110 transition-transform`}
-              />
-            </div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              {formatCurrency(user.balance)}
-            </p>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">
-              🏦 বর্তমান ভারসাম্য
-            </p>
-            <div
-              className={`mt-2 text-sm font-medium ${
-                user.balance >= 0
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-amber-600 dark:text-amber-400"
-              }`}
-            >
-              {user.balance >= 0 ? "✅ উপলব্ধ" : "⚠️ অতিরিক্ত"}
-            </div>
-          </div>
-
-          {/* Usage Rate */}
-          <div className="group bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 dark:hover:shadow-purple-500/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-500/10 rounded-xl">
-                <PieChart className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              {calculations.usageRate.toFixed(1)}%
-            </p>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">
-              📊 ব্যবহারের হার
-            </p>
-            <div className="mt-2 text-purple-600 dark:text-purple-400 text-sm font-medium">
-              চার্জ করা পরিমাণের
-            </div>
-          </div>
-        </div>
-
-        {/* Lists Section */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-          {/* Recharges */}
-          <div className="bg-white dark:bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-xl transition-all duration-300">
-            <div className="bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-500/10 dark:to-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-3">
-                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-500/20 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                Recharge History
-                <span className="ml-auto bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm px-3 py-1 rounded-full">
-                  {calculations.rechargeCount}
-                </span>
-              </h2>
-            </div>
-            <div className="overflow-y-auto max-h-96">
-              {data.recharges.map((recharge) => (
-                <div
-                  key={recharge._id}
-                  className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors last:border-b-0 group"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-100 dark:bg-emerald-500/10 rounded-lg group-hover:scale-110 transition-transform">
-                        <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="text-slate-900 dark:text-white font-medium">
-                          {recharge.method}
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">
-                          ID: {recharge.trxId}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-emerald-600 dark:text-emerald-400 font-semibold text-lg">
-                        +{formatCurrency(recharge.amount)}
-                      </p>
-                      <span className={getStatusColor(recharge.status)}>
-                        {recharge.status}
-                      </span>
-                    </div>
+            {/* Spending History */}
+            <div className="rounded-2xl bg-[#0f1117] border border-white/[0.06] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-rose-500/15 rounded-lg">
+                    <TrendingDown className="w-4 h-4 text-rose-400" />
                   </div>
-                  <p className="text-slate-500 dark:text-slate-400 text-xs ml-11">
-                    {formatDate(recharge.createdAt)}
-                  </p>
+                  <h2 className="font-semibold text-white/90 text-sm">Spending History</h2>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Spending */}
-          <div className="bg-white dark:bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-xl transition-all duration-300">
-            <div className="bg-gradient-to-r from-rose-50 to-white dark:from-rose-500/10 dark:to-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-3">
-                <div className="p-1.5 bg-rose-100 dark:bg-rose-500/20 rounded-lg">
-                  <TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                </div>
-                Spending History
-                <span className="ml-auto bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm px-3 py-1 rounded-full">
-                  {calculations.spentCount}
+                <span className="dash-mono text-xs px-2.5 py-1 rounded-full bg-white/5 text-white/40 border border-white/[0.06]">
+                  {calc.spentCount}
                 </span>
-              </h2>
-            </div>
-            <div className="overflow-y-auto max-h-96">
-              {data.spentList.map((spent) => (
-                <div
-                  key={spent._id}
-                  className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors last:border-b-0 group"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-rose-100 dark:bg-rose-500/10 rounded-lg group-hover:scale-110 transition-transform">
-                        <CreditCard className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      </div>
-                      <div>
-                        <p className="text-slate-900 dark:text-white font-medium">
-                          {spent.dataSchema}
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">
-                          Service: {spent.service.slice(0, 8)}...
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-rose-600 dark:text-rose-400 font-semibold text-lg">
-                        -{formatCurrency(spent.amount)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-slate-500 dark:text-slate-400 text-xs ml-11">
-                    {formatDate(spent.createdAt)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Combined Transactions */}
-        <div className="bg-white dark:bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-xl transition-all duration-300">
-          <div className="bg-gradient-to-r from-blue-50 to-white dark:from-blue-500/10 dark:to-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-3">
-              <div className="p-1.5 bg-blue-100 dark:bg-blue-500/20 rounded-lg">
-                <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
-              All Transactions
-            </h2>
+
+              <div className="overflow-y-auto max-h-80 scrollbar-thin divide-y divide-white/[0.04]">
+                {data.spentList.map((s) => (
+                  <div key={s._id} className="flex items-center justify-between px-6 py-3.5 hover:bg-white/[0.03] transition-colors group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-rose-500/10 group-hover:bg-rose-500/15 transition-colors">
+                        <CreditCard className="w-4 h-4 text-rose-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white/80 text-sm font-medium truncate">{s.dataSchema}</p>
+                        <p className="text-white/30 text-xs truncate">
+                          {s.service.length > 10 ? s.service.slice(0, 10) + "…" : s.service}
+                        </p>
+                        <p className="text-white/20 text-[11px] mt-0.5">{fmtDate(s.createdAt)}</p>
+                      </div>
+                    </div>
+                    <p className="dash-mono text-rose-400 font-bold text-sm shrink-0 ml-3">
+                      -{fmt(s.amount)}
+                    </p>
+                  </div>
+                ))}
+                {data.spentList.length === 0 && (
+                  <p className="text-center text-white/20 text-sm py-10">কোনো ডেটা নেই</p>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 dark:bg-slate-700/50 sticky top-0 backdrop-blur-sm">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Description
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ...data.recharges.map((r) => ({
-                    ...r,
-                    type: "recharge" as const,
-                    amount: r.amount,
-                  })),
-                  ...data.spentList.map((s) => ({
-                    ...s,
-                    type: "spent" as const,
-                    amount: -s.amount,
-                  })),
-                ]
-                  .sort(
-                    (a, b) =>
-                      new Date(b.createdAt).getTime() -
-                      new Date(a.createdAt).getTime()
-                  )
-                  .map((txn, idx) => (
+
+          {/* ── All Transactions ─────────────────────────────────────────── */}
+          <div className="fade-up fade-up-6 rounded-2xl bg-[#0f1117] border border-white/[0.06] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-500/15 rounded-lg">
+                  <Activity className="w-4 h-4 text-blue-400" />
+                </div>
+                <h2 className="font-semibold text-white/90 text-sm">All Transactions</h2>
+              </div>
+              <span className="dash-mono text-xs px-2.5 py-1 rounded-full bg-white/5 text-white/40 border border-white/[0.06]">
+                {allTxns.length}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.04]">
+                    {["Type", "Description", "Amount", "Date"].map((h) => (
+                      <th
+                        key={h}
+                        className="px-6 py-3 text-left text-xs font-semibold text-white/30 uppercase tracking-widest"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.03]">
+                  {allTxns.map((txn, i) => (
                     <tr
-                      key={`${txn.type}-${idx}`}
-                      className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors last:border-b-0 group"
+                      key={`${txn.type}-${i}`}
+                      className="hover:bg-white/[0.025] transition-colors group"
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border transition-all group-hover:scale-105 ${
-                            txn.type === "recharge"
-                              ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
-                              : "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20"
-                          }`}
+                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full border ${txn.type === "recharge"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                            }`}
                         >
                           {txn.type === "recharge" ? (
                             <ArrowUpRight className="w-3 h-3" />
@@ -513,35 +470,48 @@ const Dashboard = () => {
                           {txn.type === "recharge" ? "Recharge" : "Spent"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-medium">
-                        {txn.type === "recharge" ? txn.method : txn.dataSchema}
+                      <td className="px-6 py-3.5">
+                        <p className="text-white/75 font-medium">
+                          {txn.type === "recharge" ? txn.method : txn.dataSchema}
+                        </p>
                         {txn.type === "recharge" && txn.number && (
-                          <p className="text-slate-500 dark:text-slate-400 text-sm">
-                            {txn.number}
-                          </p>
+                          <p className="text-white/30 text-xs dash-mono mt-0.5">{txn.number}</p>
                         )}
                       </td>
-                      <td
-                        className={`px-6 py-4 font-semibold text-lg ${
-                          txn.type === "recharge"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-rose-600 dark:text-rose-400"
-                        }`}
-                      >
-                        {txn.type === "recharge" ? "+" : ""}
-                        {formatCurrency(Math.abs(txn.amount))}
+                      <td className="px-6 py-3.5">
+                        <span
+                          className={`dash-mono font-bold ${txn.type === "recharge" ? "text-emerald-400" : "text-rose-400"
+                            }`}
+                        >
+                          {txn.type === "recharge" ? "+" : "-"}
+                          {fmt(Math.abs(txn.amount))}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">
-                        {formatDate(txn.createdAt)}
+                      <td className="px-6 py-3.5 text-white/30 dash-mono text-xs">
+                        {fmtDate(txn.createdAt)}
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
+                  {allTxns.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="text-center text-white/20 py-12 text-sm">
+                        কোনো লেনদেন নেই
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Footer micro text */}
+          <p className="text-center text-white/15 text-xs mt-8 dash-mono">
+            <CircleDot className="inline w-3 h-3 mr-1 align-middle" />
+            রিয়েল-টাইম ডেটা · {new Date().toLocaleTimeString("en-US")}
+          </p>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

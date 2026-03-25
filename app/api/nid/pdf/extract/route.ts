@@ -102,6 +102,7 @@ export async function POST(req: Request) {
 
     const nidData = new NidData({
       ...pdfResult.data,
+      user: user._id,
       name_bn: pdfResult.data.nameBangla,
       name_en: pdfResult.data.nameEnglish,
       nid: pdfResult.data.nationalId,

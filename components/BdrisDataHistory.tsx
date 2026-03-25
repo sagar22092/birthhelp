@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import {
   Search,
   User,
@@ -18,7 +19,6 @@ import {
   Phone,
   Globe,
   Home,
-  FileText,
   RefreshCw,
 } from "lucide-react";
 
@@ -131,11 +131,18 @@ const HistoryPage = () => {
   };
 
   // Filter history based on search term
-  const filteredHistory = history.filter(item =>
-    item.personNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.ubrn.includes(searchTerm) ||
-    item.personNameBn.includes(searchTerm)
-  );
+  const normalizedSearch = searchTerm.toLowerCase();
+  const filteredHistory = history.filter((item) => {
+    const personNameEn = (item.personNameEn ?? "").toLowerCase();
+    const ubrn = item.ubrn ?? "";
+    const personNameBn = item.personNameBn ?? "";
+
+    return (
+      personNameEn.includes(normalizedSearch) ||
+      ubrn.includes(searchTerm) ||
+      personNameBn.includes(searchTerm)
+    );
+  });
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -180,9 +187,51 @@ const HistoryPage = () => {
   };
 
   // Copy to clipboard
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+
+        if (!copied) {
+          throw new Error("Copy command failed");
+        }
+      }
+
+      toast.success("Copied to clipboard", {
+        duration: 1800,
+      });
+    } catch (err) {
+      console.error("Copy failed:", err);
+      toast.error("Copy failed. Please try again.", {
+        duration: 2200,
+      });
+    }
+  };
+
+  const getFormattedCopyText = (item: HistoryItem) => {
+    const line = "----------------------------------------";
+    return [
+      line,
+      "Birth Record Summary",
+      line,
+      `UBRN               : ${item.ubrn ?? "N/A"}`,
+      `Full Name (English): ${item.personNameEn ?? "N/A"}`,
+      `Full Name (Bangla) : ${item.personNameBn ?? "N/A"}`,
+      `Birth Date         : ${item.personBirthDate ?? "N/A"}`,
+      line,
+    ].join("\n");
   };
 
   // Export data as JSON
@@ -448,9 +497,18 @@ const HistoryPage = () => {
 
                   {/* Header */}
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                      Person Details
-                    </h2>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Person Details
+                      </h2>
+                      <button
+                        onClick={() => copyToClipboard(getFormattedCopyText(selectedItem))}
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Format
+                      </button>
+                    </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       UBRN: <span className="font-mono">{selectedItem.ubrn}</span>
                     </p>
@@ -646,29 +704,6 @@ const HistoryPage = () => {
                       </div>
                     </div>
 
-                    {/* JSON Data */}
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center">
-                          <FileText className="h-6 w-6 text-gray-500 mr-3" />
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            Raw JSON Data
-                          </h3>
-                        </div>
-                        <button
-                          onClick={() => copyToClipboard(JSON.stringify(selectedItem, null, 2))}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy JSON
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <pre className="text-xs bg-black text-gray-200 p-4 rounded-lg overflow-x-auto max-h-64">
-                          {JSON.stringify(selectedItem, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
