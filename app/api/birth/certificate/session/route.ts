@@ -36,7 +36,7 @@ export async function GET() {
       ? userService.fee
       : userService.fee + service.fee;
     const sessionUrl =
-      "https://my.applicationzone.top/api/birth_test/fetch_captcha.php";
+      "https://api.applicationzone.top/birth/certificate/fetch_captcha.php";
     const response = await fetch(sessionUrl);
 
     const data = await response.json();

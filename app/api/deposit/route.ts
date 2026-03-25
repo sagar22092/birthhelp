@@ -1,13 +1,15 @@
 import { getUser } from "@/lib/getUser";
 import { connectDB } from "@/lib/mongodb";
 import Transaction from "@/models/Transaction";
+import Coupon from "@/models/Coupon";
+import CouponUsage from "@/models/CouponUsage";
 import User from "@/models/User";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { trxId } = body;
+    const { trxId, couponCode } = body;
 
     // Validate fields
     if (!trxId) {
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
 
     try {
       const payment = await fetch(
-        `https://api.bdx.kg/bkash/submit.php?trxid=${trxId}`
+        `https://sagarconstruction.site/bkash/submit.php?trxid=${trxId}`
       );
 
       if (!payment.ok) {
@@ -69,17 +71,69 @@ export async function POST(req: Request) {
         );
       }
 
-      // Save new transaction
-      await Transaction.create({
+      const rechargeAmount = Number(paymentData.amount);
+      const normalizedCouponCode = String(couponCode || "").trim().toUpperCase();
+
+      let cashbackAmount = 0;
+      let appliedCouponCode = "";
+      let appliedCouponId: string | null = null;
+
+      if (normalizedCouponCode) {
+        const coupon = await Coupon.findOne({
+          code: normalizedCouponCode,
+          isActive: true,
+        });
+
+        if (coupon) {
+          const now = new Date();
+          const expired = coupon.expiresAt && now > new Date(coupon.expiresAt);
+          const quotaExceeded = coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses;
+
+          let usedByUser = false;
+          if (coupon.oneTimePerUser) {
+            usedByUser = Boolean(
+              await CouponUsage.findOne({ coupon: coupon._id, user: user._id })
+            );
+          }
+
+          if (!expired && !quotaExceeded && !usedByUser) {
+            cashbackAmount = Number(
+              ((rechargeAmount * Number(coupon.cashbackPercent || 0)) / 100).toFixed(2)
+            );
+            appliedCouponCode = coupon.code;
+            appliedCouponId = String(coupon._id);
+          }
+        }
+      }
+
+      const creditedAmount = rechargeAmount + cashbackAmount;
+
+      const newTransaction = await Transaction.create({
         user: user._id,
-        amount: paymentData.amount,
+        amount: rechargeAmount,
+        creditedAmount,
+        cashbackAmount,
+        couponCode: appliedCouponCode,
         trxId,
         number: paymentData.payerAccount,
         method: "Bkash",
         status: "SUCCESS",
       });
 
-      user.balance += Number(paymentData.amount);
+      if (appliedCouponCode && appliedCouponId) {
+        await Coupon.updateOne({ _id: appliedCouponId }, { $inc: { usedCount: 1 } });
+        await CouponUsage.create({
+          coupon: appliedCouponId,
+          user: user._id,
+          transaction: newTransaction._id,
+          trxId,
+          rechargeAmount,
+          cashbackAmount,
+          totalCredited: creditedAmount,
+        });
+      }
+
+      user.balance += creditedAmount;
       await user.save();
       const userWithoutPassword = await User.findById(user._id).select(
         "-password"
@@ -92,6 +146,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: true,
+          cashbackAmount,
+          creditedAmount,
+          appliedCouponCode,
           transactions: allTransactions,
           user: userWithoutPassword,
         },

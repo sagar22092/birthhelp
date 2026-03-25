@@ -10,11 +10,14 @@ import {
   ShoppingBag,
   MessageCircle,
   ArrowBigRight,
+  BarChart3,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "../ThemeMod";
 import LogoutButton from "../Logout";
+import NotificationBell from "../NotificationBell";
 import toast, { Toaster } from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { updateUser, userLogout } from "@/lib/userSlice";
@@ -35,11 +38,24 @@ const menuItemsd = [
     href: "/my-posts",
   },
   {
+    label: "Analytics",
+    icon: <BarChart3 size={20} />,
+    href: "/analytics",
+  },
+  {
     label: "Wallet",
     icon: <Wallet size={20} />,
     href: "/wallet",
   },
+  {
+    label: "Recharge History",
+    icon: <History size={20} />,
+    href: "/recharge-history",
+  },
 ];
+
+const SERVICES_CACHE_KEY = "nav-services-cache-v1";
+const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function Nav({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -49,19 +65,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [menuItems, setMenuItems] = useState(menuItemsd);
-
-  const handleLogout = () => {
-    async function fetchData() {
-      try {
-        await axios.get(`/api/logout`, { withCredentials: true });
-        dispatch(userLogout());
-        router.push("/login");
-      } catch (error) {
-        toast.error("Error logging out. Please try again.");
-      }
-    }
-    fetchData();
-  };
+  const telegramPopupKey = user?._id || user?.email || user?.username;
   useEffect(() => {
     let prevWidth = window.innerWidth;
 
@@ -96,15 +100,35 @@ export default function Nav({ children }: { children: React.ReactNode }) {
 
     async function fetchData() {
       try {
-        const response = await axios.get(`/api/profile`, {
-          withCredentials: true,
-        });
-        dispatch(updateUser(response.data));
+        const cachedRaw = sessionStorage.getItem(SERVICES_CACHE_KEY);
+        if (cachedRaw) {
+          try {
+            const parsed = JSON.parse(cachedRaw) as {
+              timestamp: number;
+              items: Array<{ label: string; href: string }>;
+            };
+            if (Date.now() - parsed.timestamp < SERVICES_CACHE_TTL_MS) {
+              setMenuItems([
+                ...menuItemsd,
+                ...parsed.items.map((item) => ({
+                  ...item,
+                  icon: <ArrowBigRight size={20} />,
+                })),
+              ]);
+            }
+          } catch {
+            sessionStorage.removeItem(SERVICES_CACHE_KEY);
+          }
+        }
+
         try {
-          const response = await axios.get(`/api/services`, {
-            withCredentials: true,
-          });
-          const data = response.data;
+          const [profileResponse, servicesResponse] = await Promise.all([
+            axios.get(`/api/profile`, { withCredentials: true }),
+            axios.get(`/api/services`, { withCredentials: true }),
+          ]);
+          dispatch(updateUser(profileResponse.data));
+
+          const data = servicesResponse.data;
           const newNavItems = data.map(
             ({
               service: { name, href },
@@ -114,6 +138,15 @@ export default function Nav({ children }: { children: React.ReactNode }) {
               label: name,
               icon: <ArrowBigRight size={20} />,
               href,
+            })
+          );
+
+          const cacheItems = newNavItems.map(({ label, href }: { label: string; href: string }) => ({ label, href }));
+          sessionStorage.setItem(
+            SERVICES_CACHE_KEY,
+            JSON.stringify({
+              timestamp: Date.now(),
+              items: cacheItems,
             })
           );
 
@@ -129,7 +162,14 @@ export default function Nav({ children }: { children: React.ReactNode }) {
         ) {
           const err = error as { response?: { status?: number } };
           if (err.response?.status === 401) {
-            handleLogout();
+            try {
+              await axios.get(`/api/logout`, { withCredentials: true });
+            } catch {
+              toast.error("Error logging out. Please try again.");
+            } finally {
+              dispatch(userLogout());
+              router.push("/login");
+            }
           }
         } else if (error instanceof Error) {
           console.error("Error fetching profile:", error.message);
@@ -142,7 +182,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
     }
 
     fetchData();
-  }, [pathname]); // Add dependencies
+  }, [dispatch, pathname, router]);
 
   if (!mounted) {
     return null;
@@ -151,7 +191,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
   if (
     pathname === "/login" ||
     pathname === "/forgot-password" ||
-    pathname.startsWith("/reseller")||
+    pathname.startsWith("/reseller") ||
     pathname.startsWith("/admin")
   ) {
     return <>{children}</>;
@@ -161,7 +201,9 @@ export default function Nav({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-screen w-screen">
       {/* HEADER */}
       <Toaster position="top-center" reverseOrder={false} />
-      {isLoggedIn && <TelegramPopup />}
+      {isLoggedIn && telegramPopupKey ? (
+        <TelegramPopup storageKeyPart={telegramPopupKey} />
+      ) : null}
       <UpdateWhatsAppPopup isOpen={!user.whatsapp && isLoggedIn} />
       <header
         className="w-full h-16 bg-gradient-to-r from-indigo-600 via-indigo-500 to-teal-500 
@@ -201,6 +243,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
+          <NotificationBell />
           <LogoutButton />
           <ThemeToggle />
         </div>
@@ -220,20 +263,17 @@ export default function Nav({ children }: { children: React.ReactNode }) {
             <Link
               key={item?.href}
               href={item?.href}
-              className={`flex  ${
-                collapsed ? "justify-center" : "justify-start"
-              } ${
-                pathname === item?.href
+              className={`flex  ${collapsed ? "justify-center" : "justify-start"
+                } ${pathname === item?.href
                   ? "bg-blue-200/70 dark:bg-blue-700/50"
                   : ""
-              } p-4 mx-2 my-1 rounded-lg 
+                } p-4 mx-2 my-1 rounded-lg 
                 hover:bg-indigo-200/70 dark:hover:bg-teal-700/50 group relative transition-all duration-300 ease-in-out`}
             >
               <span className="group-hover:block">{item?.icon}</span>
               <span
-                className={`ml-3 font-medium transition-all duration-300 ${
-                  collapsed ? "opacity-0 absolute left-14" : "opacity-100"
-                }`}
+                className={`ml-3 font-medium transition-all duration-300 ${collapsed ? "opacity-0 absolute left-14" : "opacity-100"
+                  }`}
               >
                 {item?.label}
               </span>
@@ -242,9 +282,8 @@ export default function Nav({ children }: { children: React.ReactNode }) {
           <div className="mt-auto mb-4">
             <Link
               href="/profile"
-              className={`flex  ${
-                collapsed ? "justify-center" : "justify-start"
-              }  p-4 mx-2 my-1 rounded-lg group relative transition-all duration-300 ease-in-out`}
+              className={`flex  ${collapsed ? "justify-center" : "justify-start"
+                }  p-4 mx-2 my-1 rounded-lg group relative transition-all duration-300 ease-in-out`}
             >
               <img
                 src={
@@ -255,9 +294,8 @@ export default function Nav({ children }: { children: React.ReactNode }) {
                 className="w-8 h-8 rounded-full mr-2"
               />
               <span
-                className={`ml-3 font-medium transition-all duration-300 ${
-                  collapsed ? "opacity-0 absolute left-14" : "opacity-100"
-                }`}
+                className={`ml-3 font-medium transition-all duration-300 ${collapsed ? "opacity-0 absolute left-14" : "opacity-100"
+                  }`}
               >
                 {user?.name}
               </span>
@@ -271,9 +309,8 @@ export default function Nav({ children }: { children: React.ReactNode }) {
               bg-gradient-to-b from-slate-100 to-slate-50 
               dark:from-slate-900 dark:to-slate-800
               text-gray-900 dark:text-gray-100 shadow-lg z-40 transform transition-transform duration-300 
-              ${
-                mobileOpen ? "translate-x-0" : "-translate-x-64"
-              } flex flex-col`}
+              ${mobileOpen ? "translate-x-0" : "-translate-x-64"
+            } flex flex-col`}
         >
           <div className="flex-1 m-2">
             {menuItems.map((item) => (
@@ -283,11 +320,10 @@ export default function Nav({ children }: { children: React.ReactNode }) {
                 onClick={() => setMobileOpen(false)}
                 className={`
                 flex items-center p-4 mb-2 rounded-lg transition-all
-                ${
-                  pathname === item?.href
+                ${pathname === item?.href
                     ? "bg-indigo-300/80 dark:bg-blue-700/60 font-semibold"
                     : "hover:bg-indigo-200/70 dark:hover:bg-teal-700/50"
-                }
+                  }
       `}
               >
                 {item?.icon}

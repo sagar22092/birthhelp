@@ -6,7 +6,7 @@ import fs from "fs";
 import Services from "@/models/Services";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;

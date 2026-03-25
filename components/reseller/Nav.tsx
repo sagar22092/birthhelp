@@ -40,19 +40,6 @@ export default function ResellerNav({
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const handleLogout = () => {
-    async function fetchData() {
-      try {
-        await axios.get(`/api/reseller/logout`, { withCredentials: true });
-        dispatch(resellerLogout());
-        router.push("/reseller/login");
-      } catch (error) {
-        toast.error("Error logging out. Please try again.");
-      }
-    }
-    fetchData();
-  };
-
   useEffect(() => {
     let prevWidth = window.innerWidth;
 
@@ -84,35 +71,41 @@ export default function ResellerNav({
   // Fetch user profile and counts
   useEffect(() => {
     async function fetchData() {
-  
-        try {
-          const response = await axios.get(`/api/reseller/profile`, {
-            withCredentials: true,
-          });
-          dispatch(resellerLogin(response.data));
-        } catch (error: unknown) {
-          if (
-            typeof error === "object" &&
-            error !== null &&
-            "response" in error
-          ) {
-            const err = error as { response?: { status?: number } };
-            if (err.response?.status === 401) {
-              handleLogout();
+      try {
+        const response = await axios.get(`/api/reseller/profile`, {
+          withCredentials: true,
+        });
+        dispatch(resellerLogin(response.data));
+      } catch (error: unknown) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "response" in error
+        ) {
+          const err = error as { response?: { status?: number } };
+          if (err.response?.status === 401) {
+            try {
+              await axios.get(`/api/reseller/logout`, { withCredentials: true });
+            } catch {
+              toast.error("Error logging out. Please try again.");
+            } finally {
+              dispatch(resellerLogout());
+              router.push("/reseller/login");
             }
-          } else if (error instanceof Error) {
-            console.error("Error fetching profile:", error.message);
-          } else if (typeof error === "object" && error !== null) {
-            console.error("Error fetching profile:", JSON.stringify(error));
-          } else {
-            console.error("Error fetching profile:", String(error));
           }
+        } else if (error instanceof Error) {
+          console.error("Error fetching profile:", error.message);
+        } else if (typeof error === "object" && error !== null) {
+          console.error("Error fetching profile:", JSON.stringify(error));
+        } else {
+          console.error("Error fetching profile:", String(error));
         }
+      }
 
     }
 
     fetchData();
-  }, [isResellerLoggedIn]);
+  }, [dispatch, isResellerLoggedIn, router]);
 
   if (pathname === "/reseller/login" || pathname === "/forgot-password" || pathname.startsWith("/admin")) {
     return <>{children}</>;
@@ -183,20 +176,17 @@ export default function ResellerNav({
             <Link
               key={item?.href}
               href={item?.href}
-              className={`flex  ${
-                collapsed ? "justify-center" : "justify-start"
-              } ${
-                pathname === item?.href
+              className={`flex  ${collapsed ? "justify-center" : "justify-start"
+                } ${pathname === item?.href
                   ? "bg-blue-200/70 dark:bg-blue-700/50"
                   : ""
-              } p-4 mx-2 my-1 rounded-lg 
+                } p-4 mx-2 my-1 rounded-lg 
                 hover:bg-indigo-200/70 dark:hover:bg-teal-700/50 group relative transition-all duration-300 ease-in-out`}
             >
               <span className="group-hover:block">{item?.icon}</span>
               <span
-                className={`ml-3 font-medium transition-all duration-300 ${
-                  collapsed ? "opacity-0 absolute left-14" : "opacity-100"
-                }`}
+                className={`ml-3 font-medium transition-all duration-300 ${collapsed ? "opacity-0 absolute left-14" : "opacity-100"
+                  }`}
               >
                 {item?.label}
               </span>
@@ -205,9 +195,8 @@ export default function ResellerNav({
           <div className="mt-auto mb-4">
             <Link
               href="/reseller/profile"
-              className={`flex  ${
-                collapsed ? "justify-center" : "justify-start"
-              }  p-4 mx-2 my-1 rounded-lg group relative transition-all duration-300 ease-in-out`}
+              className={`flex  ${collapsed ? "justify-center" : "justify-start"
+                }  p-4 mx-2 my-1 rounded-lg group relative transition-all duration-300 ease-in-out`}
             >
               <img
                 src={
@@ -218,9 +207,8 @@ export default function ResellerNav({
                 className="w-8 h-8 rounded-full mr-2"
               />
               <span
-                className={`ml-3 font-medium transition-all duration-300 ${
-                  collapsed ? "opacity-0 absolute left-14" : "opacity-100"
-                }`}
+                className={`ml-3 font-medium transition-all duration-300 ${collapsed ? "opacity-0 absolute left-14" : "opacity-100"
+                  }`}
               >
                 {reseller?.name}
               </span>
@@ -234,9 +222,8 @@ export default function ResellerNav({
               bg-gradient-to-b from-slate-100 to-slate-50 
               dark:from-slate-900 dark:to-slate-800
               text-gray-900 dark:text-gray-100 shadow-lg z-40 transform transition-transform duration-300 
-              ${
-                mobileOpen ? "translate-x-0" : "-translate-x-64"
-              } flex flex-col`}
+              ${mobileOpen ? "translate-x-0" : "-translate-x-64"
+            } flex flex-col`}
         >
           <div className="flex-1 m-2">
             {menuItems.map((item) => (
@@ -246,11 +233,10 @@ export default function ResellerNav({
                 onClick={() => setMobileOpen(false)}
                 className={`
                 flex items-center p-4 mb-2 rounded-lg transition-all
-                ${
-                  pathname === item?.href
+                ${pathname === item?.href
                     ? "bg-indigo-300/80 dark:bg-blue-700/60 font-semibold"
                     : "hover:bg-indigo-200/70 dark:hover:bg-teal-700/50"
-                }
+                  }
       `}
               >
                 {item?.icon}

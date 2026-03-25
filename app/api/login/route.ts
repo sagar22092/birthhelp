@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import User, { IUser } from "@/models/User";
 import sendOTPEmail from "@/lib/emailOtp";
+import { shouldUseSecureCookies } from "@/lib/authCookies";
 
 // Rate limiting store for successful logins
 const successfulLoginStore = new Map<string, number>();
@@ -12,7 +13,7 @@ const successfulLoginStore = new Map<string, number>();
 const checkRecentLogin = (identifier: string): boolean => {
   const lastLogin = successfulLoginStore.get(identifier);
   if (!lastLogin) return true; // No recent login, allow
-  
+
   const oneMinuteAgo = Date.now() - 60 * 1000;
   return lastLogin < oneMinuteAgo; // Allow if last login was more than 1 minute ago
 };
@@ -34,7 +35,7 @@ setInterval(() => {
 const validateEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const generateTokens = (
+const generateTokens = (
   userId: string,
   email: string,
   rememberMe = false
@@ -134,9 +135,8 @@ export async function POST(req: NextRequest) {
       await user.save();
       return NextResponse.json(
         {
-          message: `Wrong password. ${
-            maxAttempts - user.loginAttempts
-          } attempts left`,
+          message: `Wrong password. ${maxAttempts - user.loginAttempts
+            } attempts left`,
         },
         { status: 401 }
       );
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     const clientIpHeader = req.headers.get("x-forwarded-for");
     const ip = clientIpHeader ? clientIpHeader.split(",")[0].trim() : "unknown";
-    
+
     user.lastLogin = new Date();
     user.lastLoginIp = ip;
     await user.save();
@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
       expiresIn: rememberMe ? "30d" : "1d",
     };
 
+    const secureCookies = shouldUseSecureCookies(req);
     const res = NextResponse.json(responseBody, { status: 200 });
     res.cookies.set({
       name: "refreshToken",
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
       sameSite: "lax",
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookies,
     });
     res.cookies.set({
       name: "token",
@@ -201,7 +202,7 @@ export async function POST(req: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
       sameSite: "lax",
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookies,
     });
 
     return res;
@@ -215,7 +216,7 @@ export async function POST(req: NextRequest) {
 }
 
 // JWT verification for protected routes
-export const verifyToken = (token: string) => {
+const verifyToken = (token: string) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
   } catch {

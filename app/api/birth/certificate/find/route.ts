@@ -259,9 +259,8 @@ function dateToWords(dateStr: string): string {
       } else if (lastTwo < 20) {
         result += teens[lastTwo - 10];
       } else {
-        result += `${tens[Math.floor(lastTwo / 10)]} ${
-          ones[lastTwo % 10]
-        }`.trim();
+        result += `${tens[Math.floor(lastTwo / 10)]} ${ones[lastTwo % 10]
+          }`.trim();
       }
     }
 
@@ -273,7 +272,7 @@ function dateToWords(dateStr: string): string {
 
 function toISO(dateStr: string): string {
   const [dd, mm, yyyy] = dateStr.split("/");
-  return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+  return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
 }
 
 export async function POST(req: Request) {
@@ -323,7 +322,7 @@ export async function POST(req: Request) {
       : userService.fee + service.fee;
 
     const response = await fetch(
-      "https://my.applicationzone.top/api/birth_test/verify_birth.php",
+      "https://api.applicationzone.top/birth/certificate/verify_birth.php",
       {
         method: "POST",
         headers: {

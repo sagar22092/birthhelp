@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, use, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -77,6 +77,48 @@ export default function BirthCertificateSearch() {
     },
   });
   const router = useRouter();
+  const hasLoadedSession = useRef(false);
+
+  const calculateCaptchaAnswer = useCallback((captchaText: string): string | null => {
+    if (!captchaText) return null;
+
+    const normalized = captchaText.trim();
+    const arithmeticMatch = normalized.match(/^(-?\d+)\s*([+\-xX*/])\s*(-?\d+)\s*=?$/);
+
+    if (!arithmeticMatch) {
+      return null;
+    }
+
+    const left = Number(arithmeticMatch[1]);
+    const operator = arithmeticMatch[2];
+    const right = Number(arithmeticMatch[3]);
+
+    if (Number.isNaN(left) || Number.isNaN(right)) return null;
+
+    switch (operator) {
+      case "+":
+        return String(left + right);
+      case "-":
+        return String(left - right);
+      case "x":
+      case "X":
+      case "*":
+        return String(left * right);
+      case "/":
+        if (right === 0) return null;
+        return String(Math.floor(left / right));
+      default:
+        return null;
+    }
+  }, []);
+
+  const handleCaptchaBlur = useCallback(() => {
+    setSearchForm((prev) => {
+      const calculated = calculateCaptchaAnswer(prev.captcha_answer);
+      if (!calculated) return prev;
+      return { ...prev, captcha_answer: calculated };
+    });
+  }, [calculateCaptchaAnswer]);
 
   // Search form handler
   const handleSearchChange = useCallback(
@@ -96,7 +138,10 @@ export default function BirthCertificateSearch() {
         const newData = await response.json();
         setData(newData);
         toast.success("সেশন রিলোড সফলভাবে হয়েছে", { id: "sessionReload" });
-        setSearchForm((prev) => ({ ...prev, captcha_answer: "" }));
+        setSearchForm((prev) => ({
+          ...prev,
+          captcha_answer: "",
+        }));
       } else {
         toast.error("সেশন রিলোড করতে সমস্যা হয়েছে", { id: "sessionReload" });
       }
@@ -144,7 +189,7 @@ export default function BirthCertificateSearch() {
     } finally {
       setLoading(false);
     }
-  }, [searchForm]);
+  }, [searchForm, data.data.session_id]);
 
   // Show full data handler - redirect to edit page
   const handleShowFull = useCallback(async () => {
@@ -181,6 +226,9 @@ export default function BirthCertificateSearch() {
   );
 
   useEffect(() => {
+    // Prevent duplicate API calls in React strict mode during development.
+    if (hasLoadedSession.current) return;
+    hasLoadedSession.current = true;
     sessionReload();
   }, []);
   return (
@@ -255,6 +303,7 @@ export default function BirthCertificateSearch() {
             name="captcha_answer"
             value={searchForm.captcha_answer}
             onChange={handleSearchChange}
+            onBlur={handleCaptchaBlur}
             placeholder="Enter captcha"
             className="w-full px-4 py-2 border rounded-lg"
           />
@@ -268,6 +317,9 @@ export default function BirthCertificateSearch() {
             🔄
           </button>
         </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3">
+          Captcha auto নয়। আপনি লিখবেন, math format হলে field থেকে বের হলে calculate হবে।
+        </p>
 
         {/* Search Button */}
         <div className="flex gap-4">

@@ -61,14 +61,14 @@ function LoginPage() {
       router.push("/");
       toast.success(`Welcome back, ${user?.name}!`);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, router, user?.name]);
 
   return (
     <div className="bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 min-h-screen flex items-center justify-center p-4">
       <Toaster position="top-center" />
       <div className="w-full max-w-md">
         <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-          
+
           {/* Header */}
           <div className="text-center mb-6">
             <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">

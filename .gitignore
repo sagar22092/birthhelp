@@ -42,3 +42,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+node_modules
+.next
+.env
+.env.local
+tmp/
+.vscode/
+._
+nul
+new
+udo systemctl start nginx

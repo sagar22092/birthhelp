@@ -7,7 +7,6 @@ import {
   X,
   RefreshCw,
   User,
-  Hash,
   AlertCircle,
   Calendar,
   MapPin,
@@ -405,10 +404,81 @@ const SearchPage = () => {
     return genderMap[gender] || gender;
   };
 
-  // Copy to clipboard
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+  // Copy to clipboard with fallback
+  const copyToClipboard = async (text: string) => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard!");
+        return;
+      }
+      
+      // Fallback: use older method
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const success = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      
+      if (success) {
+        toast.success("Copied to clipboard!");
+      } else {
+        toast.error("Failed to copy!");
+      }
+    } catch (error) {
+      toast.error("Failed to copy!");
+      console.error("Copy error:", error);
+    }
+  };
+
+  // Format person info for copy
+  const formatPersonInfo = (person: Person) => {
+    return `UBRN: ${person.ubrn}
+Birth Date: ${person.personBirthDate}
+
+Full Name (English): ${person.personNameEn}
+Full Name (Bangla): ${person.personNameBn}
+
+Gender: ${formatGender(person.gender)}
+Registration Date: ${person.dateOfRegistration}
+Child Number: ${person.thChild}`;
+  };
+
+  // Format parent info for copy
+  const formatParentInfo = (person: Person) => {
+    return `FATHER:
+Name (English): ${person.fatherNameEn}
+Name (Bangla): ${person.fatherNameBn}
+BRN: ${person.fatherBrn}
+Nationality: ${person.fatherNationalityEn}
+
+MOTHER:
+Name (English): ${person.motherNameEn}
+Name (Bangla): ${person.motherNameBn}
+BRN: ${person.motherBrn}
+Nationality: ${person.motherNationalityEn}`;
+  };
+
+  // Format address info for copy
+  const formatAddressInfo = (person: Person) => {
+    return `BIRTH PLACE:
+English: ${person.fullBirthPlaceEn}
+Bangla: ${person.fullBirthPlaceBn}
+
+PERMANENT ADDRESS:
+English: ${person.fullPermAddrEn}
+Bangla: ${person.fullPermAddrBn}
+
+PRESENT ADDRESS:
+English: ${person.fullPrsntAddrEn || "N/A"}
+Bangla: ${person.fullPrsntAddrBn || "N/A"}`;
   };
 
   // Close modal on ESC key
@@ -444,37 +514,46 @@ const SearchPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#dbeafe_0%,_#eef2ff_24%,_#f8fafc_56%,_#f8fafc_100%)] dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex justify-between">
-          <div className="">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+        <div className="mb-8 rounded-2xl border border-slate-200/70 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 backdrop-blur px-5 py-6 md:px-8 md:py-7 shadow-[0_8px_30px_rgb(15,23,42,0.06)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-300 mb-2">
+                Data Intelligence
+              </p>
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-2">
               People Search
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Search through the people database with advanced filtering options
-            </p>
-            <p className="text-red-500 dark:text-red-400 mt-2">
-              প্রতি বার {serviceCost} টাকা করে কাটা হবে
-            </p>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              {note}
-            </p>
+              </h1>
+              <p className="text-slate-600 dark:text-slate-300">
+                Search through the people database with advanced filtering options
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-200">
+                  প্রতি বার {serviceCost} টাকা করে কাটা হবে
+                </span>
+                {note ? (
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    {note}
+                  </span>
+                ) : null}
+              </div>
+            </div>
 
+            <Link href="/data/ministry/history">
+              <button className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-sky-700 hover:shadow-lg">
+                History
+              </button>
+            </Link>
           </div>
-          <Link href="/data/ministry/history">
-            <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-              History
-            </button>
-          </Link>
         </div>
 
         {/* Search Form */}
         <div className="mb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Filters Panel */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+            <div className="bg-white/95 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-[0_10px_28px_rgb(15,23,42,0.08)]">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Basic Filters */}
                 <div className="space-y-4">
@@ -615,7 +694,7 @@ const SearchPage = () => {
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="mt-6 pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-t border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={resetOptions}
@@ -638,7 +717,7 @@ const SearchPage = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full md:w-auto inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full md:w-auto inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <>
@@ -677,71 +756,8 @@ const SearchPage = () => {
           </div>
         )}
 
-        {/* API Info */}
-        {apiInfo && !loading && (
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center">
-                <User className="h-5 w-5 text-blue-500 mr-2" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Results
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                    {apiInfo.count}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center">
-                <Info className="h-5 w-5 text-green-500 mr-2" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Search Mode
-                  </p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {apiInfo.usedTextIndex ? "Text Index" : "Regex"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center">
-                <Filter className="h-5 w-5 text-purple-500 mr-2" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Match Mode
-                  </p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
-                    {apiInfo.matchMode}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center">
-                <Hash className="h-5 w-5 text-orange-500 mr-2" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Index Hint
-                  </p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {apiInfo.hintApplied
-                      ? "Applied"
-                      : apiInfo.autoHintApplied || "Auto"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Results Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="bg-white/95 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_26px_rgb(15,23,42,0.08)] overflow-hidden">
           {/* Loading State */}
           {loading && (
             <div className="flex items-center justify-center p-12">
@@ -936,27 +952,40 @@ const SearchPage = () => {
                           </span>
                         </p>
                       </div>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            JSON.stringify(selectedPerson, null, 2)
-                          )
-                        }
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy JSON
-                      </button>
+                      <div>
+                        <button
+                          onClick={() =>
+                            copyToClipboard(
+                              `UBRN: ${selectedPerson.ubrn}\nBirth Date: ${selectedPerson.personBirthDate}`
+                            )
+                          }
+                          className="inline-flex items-center px-3 py-2 border border-sky-300 dark:border-sky-600 rounded-md text-sm font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy UBRN
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-6">
                       {/* Personal Information Card */}
                       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-                        <div className="flex items-center mb-4">
-                          <User className="h-6 w-6 text-blue-500 mr-3" />
-                          <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            Personal Information
-                          </h4>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            <User className="h-6 w-6 text-blue-500 mr-3" />
+                            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+                              Personal Information
+                            </h4>
+                          </div>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(formatPersonInfo(selectedPerson))
+                            }
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            Copy
+                          </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           <div>
@@ -1038,11 +1067,22 @@ const SearchPage = () => {
 
                       {/* Parent Information Card */}
                       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-                        <div className="flex items-center mb-4">
-                          <Users className="h-6 w-6 text-green-500 mr-3" />
-                          <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            Parent Information
-                          </h4>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            <Users className="h-6 w-6 text-green-500 mr-3" />
+                            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+                              Parent Information
+                            </h4>
+                          </div>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(formatParentInfo(selectedPerson))
+                            }
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 bg-green-50 dark:bg-green-900/20 rounded hover:bg-green-100 dark:hover:bg-green-900/40"
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            Copy
+                          </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -1138,11 +1178,22 @@ const SearchPage = () => {
 
                       {/* Address Information Card */}
                       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-                        <div className="flex items-center mb-4">
-                          <MapPin className="h-6 w-6 text-purple-500 mr-3" />
-                          <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            Address Information
-                          </h4>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            <MapPin className="h-6 w-6 text-purple-500 mr-3" />
+                            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+                              Address Information
+                            </h4>
+                          </div>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(formatAddressInfo(selectedPerson))
+                            }
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 bg-purple-50 dark:bg-purple-900/20 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40"
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            Copy
+                          </button>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -1296,33 +1347,7 @@ const SearchPage = () => {
                         </div>
                       </div>
 
-                      {/* Raw JSON Data */}
-                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center">
-                            <Tag className="h-6 w-6 text-gray-500 mr-3" />
-                            <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                              Raw JSON Data
-                            </h4>
-                          </div>
-                          <button
-                            onClick={() =>
-                              copyToClipboard(
-                                JSON.stringify(selectedPerson, null, 2)
-                              )
-                            }
-                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy JSON
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <pre className="text-xs bg-black text-gray-200 p-4 rounded-lg overflow-x-auto max-h-96">
-                            {JSON.stringify(selectedPerson, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -1342,7 +1367,7 @@ const SearchPage = () => {
 
         {/* Help Section */}
         <div className="mt-8">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+          <div className="bg-gradient-to-r from-cyan-50 to-sky-50 dark:from-sky-900/30 dark:to-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded-2xl p-6">
             <div className="flex items-start">
               <Info className="h-6 w-6 text-blue-400 mr-3 flex-shrink-0" />
               <div>
@@ -1370,7 +1395,7 @@ const SearchPage = () => {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
           <p>
             Powered by MongoDB Search API • Results limited to 2000 records per
             query

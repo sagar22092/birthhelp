@@ -4,11 +4,12 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/mongodb";
 import Reseller, { IReseller } from "@/models/Reseller";
+import { shouldUseSecureCookies } from "@/lib/authCookies";
 
 const validateEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const generateTokens = (
+const generateTokens = (
   userId: string,
   email: string,
   rememberMe = false
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
       expiresIn: rememberMe ? "30d" : "1d",
     };
 
+    const secureCookies = shouldUseSecureCookies(req);
     const res = NextResponse.json(responseBody, { status: 200 });
     res.cookies.set({
       name: "resellerRefreshToken",
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
       sameSite: "lax",
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookies,
     });
     res.cookies.set({
       name: "resellerToken",
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
       sameSite: "lax",
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookies,
     });
 
     return res;
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
 }
 
 // JWT verification for protected routes
-export const verifyToken = (token: string) => {
+const verifyToken = (token: string) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
   } catch {

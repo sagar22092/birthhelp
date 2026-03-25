@@ -75,8 +75,12 @@ const Dashboard = () => {
       (sum, item) => sum + item.amount,
       0
     );
-    console.log(data.recharges)
-    const totalRecharged = data.recharges.reduce(
+
+    const successfulRecharges = data.recharges.filter(
+      (item) => item.status === "SUCCESS"
+    );
+
+    const totalRecharged = successfulRecharges.reduce(
       (sum, item) => sum + item.amount,
       0
     );
@@ -89,7 +93,7 @@ const Dashboard = () => {
       totalRecharged,
       balance,
       spentCount: data.spentList.length,
-      rechargeCount: data.recharges.length,
+      rechargeCount: successfulRecharges.length,
       usageRate,
     };
   }, [data]);
@@ -122,16 +126,110 @@ const Dashboard = () => {
     }
   };
 
+  // Get time-based welcome message
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    
+    if (hour >= 5 && hour < 12) {
+      return {
+        emoji: "🌅",
+        greeting: "সকালের শুভেচ্ছা",
+        message: "নতুন দিনে সফলতার আশা করছি",
+        bgGradient: "from-orange-400 via-pink-500 to-red-500",
+        darkBgGradient: "dark:from-orange-600 dark:via-pink-600 dark:to-red-700"
+      };
+    } else if (hour >= 12 && hour < 17) {
+      return {
+        emoji: "☀️",
+        greeting: "দুপুরের নমস্কার",
+        message: "দিনের মাঝামাঝি সময়ে আপনার লক্ষ্য অর্জন করুন",
+        bgGradient: "from-yellow-400 via-yellow-500 to-orange-500",
+        darkBgGradient: "dark:from-yellow-600 dark:via-yellow-500 dark:to-orange-600"
+      };
+    } else if (hour >= 17 && hour < 20) {
+      return {
+        emoji: "🌅",
+        greeting: "সন্ধ্যার স্বাগতম",
+        message: "দিনের পরিশ্রম বিশ্রাম করার সময় এসেছে",
+        bgGradient: "from-indigo-500 via-purple-500 to-pink-500",
+        darkBgGradient: "dark:from-indigo-700 dark:via-purple-700 dark:to-pink-700"
+      };
+    } else {
+      return {
+        emoji: "🌙",
+        greeting: "রাতের ভালো সময়",
+        message: "শান্তি এবং আরামময় সময় কাটান",
+        bgGradient: "from-slate-700 via-blue-700 to-indigo-900",
+        darkBgGradient: "dark:from-slate-800 dark:via-blue-800 dark:to-indigo-900"
+      };
+    }
+  };
+
+  const timeGreeting = getTimeBasedGreeting();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 sm:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
+        {/* Welcome Banner - Time Based */}
+        <div className={`mb-8 bg-gradient-to-r ${timeGreeting.bgGradient} ${timeGreeting.darkBgGradient} rounded-3xl p-8 text-white shadow-2xl overflow-hidden relative`}>
+          {/* Animated background pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
+            <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full mix-blend-multiply filter blur-3xl"></div>
+          </div>
+
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="flex-1">
+              {/* Time-based greeting */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-5xl animate-bounce">{timeGreeting.emoji}</span>
+                <div>
+                  <p className="text-white/80 text-sm font-medium mb-1">{new Date().toLocaleDateString('bn-BD', { weekday: 'long' })}</p>
+                  <h1 className="text-3xl sm:text-4xl font-bold">
+                    {timeGreeting.greeting}, {user?.name?.split(' ')[0]}!
+                  </h1>
+                </div>
+              </div>
+
+              {/* Dynamic message */}
+              <p className="text-white/90 text-lg mb-5 font-medium">
+                {timeGreeting.message}
+              </p>
+
+              {/* Quick stats */}
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-white/30 transition-all">
+                  💳 {calculations.rechargeCount}টি লেনদেন
+                </span>
+                <span className="px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-white/30 transition-all">
+                  📊 {calculations.usageRate.toFixed(0)}% ব্যবহৃত
+                </span>
+                {user.balance >= 0 ? (
+                  <span className="px-3 py-2 bg-emerald-400/40 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-emerald-400/50 transition-all">
+                    ✅ ভারসাম্য ইতিবাচক
+                  </span>
+                ) : (
+                  <span className="px-3 py-2 bg-red-400/40 backdrop-blur-sm rounded-full text-sm font-medium hover:bg-red-400/50 transition-all">
+                    ⚠️ ভারসাম্য নেতিবাচক
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Animated icon */}
+            <div className="hidden sm:flex items-center justify-center w-28 h-28 bg-white/10 backdrop-blur-sm rounded-2xl animate-pulse">
+              <span className="text-6xl">{timeGreeting.emoji}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
-        <div className="mb-8 text-center sm:text-left">
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent mb-2">
-            Financial Dashboard
-          </h1>
+        <div className="mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
+            আপনার আর্থিক সারসংক্ষেপ
+          </h2>
           <p className="text-slate-600 dark:text-slate-400">
-            Track your spending and recharges in real-time
+            রিয়েল-টাইমে আপনার খরচ এবং চার্জ ট্র্যাক করুন
           </p>
         </div>
 
@@ -149,10 +247,10 @@ const Dashboard = () => {
               {formatCurrency(calculations.totalRecharged)}
             </p>
             <p className="text-slate-600 dark:text-slate-400 text-sm">
-              Total Recharged
+              💰 মোট চার্জ
             </p>
             <div className="mt-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-              {calculations.rechargeCount} transactions
+              {calculations.rechargeCount}টি লেনদেন
             </div>
           </div>
 
@@ -168,10 +266,10 @@ const Dashboard = () => {
               {formatCurrency(calculations.totalSpent)}
             </p>
             <p className="text-slate-600 dark:text-slate-400 text-sm">
-              Total Spent
+              💸 মোট খরচ
             </p>
             <div className="mt-2 text-rose-600 dark:text-rose-400 text-sm font-medium">
-              {calculations.spentCount} transactions
+              {calculations.spentCount}টি লেনদেন
             </div>
           </div>
 
@@ -211,7 +309,7 @@ const Dashboard = () => {
               {formatCurrency(user.balance)}
             </p>
             <p className="text-slate-600 dark:text-slate-400 text-sm">
-              Current Balance
+              🏦 বর্তমান ভারসাম্য
             </p>
             <div
               className={`mt-2 text-sm font-medium ${
@@ -220,7 +318,7 @@ const Dashboard = () => {
                   : "text-amber-600 dark:text-amber-400"
               }`}
             >
-              {user.balance >= 0 ? "💰 Available" : "⚠️ Overdue"}
+              {user.balance >= 0 ? "✅ উপলব্ধ" : "⚠️ অতিরিক্ত"}
             </div>
           </div>
 
@@ -236,10 +334,10 @@ const Dashboard = () => {
               {calculations.usageRate.toFixed(1)}%
             </p>
             <p className="text-slate-600 dark:text-slate-400 text-sm">
-              Usage Rate
+              📊 ব্যবহারের হার
             </p>
             <div className="mt-2 text-purple-600 dark:text-purple-400 text-sm font-medium">
-              of recharged amount
+              চার্জ করা পরিমাণের
             </div>
           </div>
         </div>

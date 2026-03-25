@@ -17,6 +17,24 @@ import toast from "react-hot-toast";
 // Define types for better TypeScript support
 type FormData = {
   trxId: string;
+  couponCode: string;
+};
+
+type CashbackSummary = {
+  cashbackRatePercent: number;
+  programStartAt: string;
+  eligibleUseCount: number;
+  eligibleSpendAmount: number;
+  estimatedCashback: number;
+  recentCoupons: Array<{
+    _id?: string;
+    code: string;
+    cashbackAmount: number;
+    isActive: boolean;
+    usedCount: number;
+    redeemedAt?: string;
+    createdAt?: string;
+  }>;
 };
 
 type Transaction = {
@@ -31,14 +49,17 @@ type Transaction = {
 export default function WalletPage() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [cashbackCode, setCashbackCode] = useState("");
   const [data, setData] = useState<{ bkash: string }>({ bkash: "" });
   const { user } = useAppSelector((state) => state.userAuth);
   const dispatch = useAppDispatch();
   const [formData, setFormData] = useState<FormData>({
     trxId: "",
+    couponCode: "",
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cashbackSummary, setCashbackSummary] = useState<CashbackSummary | null>(null);
   const fetctData = async () => {
     try {
       const response = await fetch("/api/data");
@@ -49,8 +70,21 @@ export default function WalletPage() {
     }
   };
 
+  const fetchCashbackSummary = async () => {
+    try {
+      const response = await fetch("/api/coupon/cashback");
+      const result = await response.json();
+      if (response.ok) {
+        setCashbackSummary(result);
+      }
+    } catch (error) {
+      console.error("Error fetching cashback summary:", error);
+    }
+  };
+
   useEffect(() => {
     fetctData();
+    fetchCashbackSummary();
   }, []);
 
   const bkashNumber = data.bkash;
@@ -90,11 +124,16 @@ export default function WalletPage() {
         if (res.ok) {
           setTransactions(data.transactions || []);
           dispatch(updateUser(data.user));
-          setFormData({ trxId: "" });
+          setFormData({ trxId: "", couponCode: "" });
           setShowDepositModal(false);
-          toast.success("Deposit successful", {
+          toast.success(
+            data.cashbackAmount > 0
+              ? `Deposit successful! Cashback ৳${Number(data.cashbackAmount).toLocaleString("bn-BD")}`
+              : "Deposit successful",
+            {
             id: "deposit",
-          });
+            }
+          );
         } else {
           toast.error(data.error || data.message, {
             id: "deposit",
@@ -103,6 +142,67 @@ export default function WalletPage() {
       } catch (error) {
         console.log(error);
       }
+    }
+  };
+
+  const handleGenerateCashbackCoupon = async () => {
+    try {
+      toast.loading("Cashback coupon তৈরি হচ্ছে...", { id: "cashback-generate" });
+      const response = await fetch("/api/coupon/cashback", {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.message || "Coupon তৈরি করা যায়নি", {
+          id: "cashback-generate",
+        });
+        return;
+      }
+
+      toast.success(`Coupon: ${result.coupon.code}`, { id: "cashback-generate" });
+      setCashbackCode(result.coupon.code);
+      fetchCashbackSummary();
+    } catch (error) {
+      console.error(error);
+      toast.error("Coupon তৈরি করা যায়নি", { id: "cashback-generate" });
+    }
+  };
+
+  const handleRedeemCoupon = async () => {
+    if (!cashbackCode.trim()) {
+      toast.error("Coupon code দিন");
+      return;
+    }
+
+    try {
+      toast.loading("Coupon redeem হচ্ছে...", { id: "coupon-redeem" });
+      const response = await fetch("/api/coupon/redeem", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: cashbackCode }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        toast.error(result.message || "Coupon redeem করা যায়নি", {
+          id: "coupon-redeem",
+        });
+        return;
+      }
+
+      dispatch(updateUser(result.user));
+      setCashbackCode("");
+      fetchTransactions();
+      fetchCashbackSummary();
+      toast.success(`৳ ${Number(result.amount).toLocaleString("bn-BD")} ব্যালেন্সে যোগ হয়েছে`, {
+        id: "coupon-redeem",
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Coupon redeem করা যায়নি", { id: "coupon-redeem" });
     }
   };
 
@@ -172,6 +272,71 @@ export default function WalletPage() {
             <span className="relative z-10">টাকা জমা দিন</span>
           </button>
         )}
+
+        <div className="mt-6 grid gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  ইউজ অনুযায়ী Cashback Coupon
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  {cashbackSummary
+                    ? `${cashbackSummary.cashbackRatePercent}% cashback, ${cashbackSummary.eligibleUseCount} টি নতুন use eligible`
+                    : "নতুন use থেকে coupon তৈরি হবে"}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  পুরনো use ধরা হবে না, আর একই use একাধিকবার claim হবে না।
+                </p>
+              </div>
+              <button
+                onClick={handleGenerateCashbackCoupon}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold hover:scale-105 transition"
+              >
+                Coupon তৈরি করুন
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Eligible Use Amount</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  ৳ {Number(cashbackSummary?.eligibleSpendAmount || 0).toLocaleString("bn-BD")}
+                </p>
+              </div>
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Estimated Cashback</p>
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                  ৳ {Number(cashbackSummary?.estimatedCashback || 0).toLocaleString("bn-BD")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg">
+            <p className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              Coupon Redeem করুন
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={cashbackCode}
+                onChange={(e) => setCashbackCode(e.target.value.toUpperCase())}
+                placeholder="Coupon code লিখুন"
+                className="flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 focus:border-indigo-500 outline-none"
+              />
+              <button
+                onClick={handleRedeemCoupon}
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:scale-105 transition"
+              >
+                Redeem
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+              Recharge ছাড়া সরাসরি site balance-এ coupon redeem করা যাবে।
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Enhanced Deposit Modal - Matched to withdraw modal */}
@@ -295,6 +460,12 @@ export default function WalletPage() {
                       type: "text",
                       placeholder: "যেমন: TRX202501201",
                     },
+                    {
+                      label: "কুপন কোড (ঐচ্ছিক)",
+                      name: "couponCode",
+                      type: "text",
+                      placeholder: "যেমন: WELCOME05",
+                    },
                   ].map((field, index) => (
                     <div key={field.name} className="group">
                       <label className="block text-gray-700 dark:text-gray-300 text-sm font-semibold mb-2">
@@ -323,7 +494,7 @@ export default function WalletPage() {
                     <button
                       onClick={() => {
                         setShowDepositModal(false);
-                        setFormData({ trxId: "" });
+                        setFormData({ trxId: "", couponCode: "" });
                       }}
                       className="flex-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-4 rounded-xl transition duration-300 border border-gray-300 dark:border-gray-500 hover:border-gray-400 dark:hover:border-gray-400"
                     >

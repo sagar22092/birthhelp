@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   if (appType === "br") {
     const application = await BirthRegistration.findOne({
       applicationId: appId,
-    }) 
+    })
     if (!application) {
       return NextResponse.json({ error: "Data not found" }, { status: 404 });
     }
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   let browser;
 
   try {
-    const url = `https://api.sheva247.site/test/4.php?appId=${appId}&dob=${dob}&appType=${appType}`;
+    const url = `https://api.bdx.kg/4.php?appId=${appId}&dob=${dob}&appType=${appType}`;
 
     browser = await puppeteer.launch({
       headless: true,

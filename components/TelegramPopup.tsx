@@ -1,36 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export default function TelegramPopup() {
+interface TelegramPopupData {
+  joined?: boolean;
+  pausedUntil?: number;
+  timestamp?: number;
+}
+
+interface TelegramPopupProps {
+  storageKeyPart: string;
+}
+
+const STORAGE_PREFIX = 'telegramPopupData:';
+
+const readPopupData = (storageKey: string): TelegramPopupData | null => {
+  try {
+    const rawValue = localStorage.getItem(storageKey);
+    if (!rawValue) {
+      return null;
+    }
+
+    return JSON.parse(rawValue) as TelegramPopupData;
+  } catch {
+    localStorage.removeItem(storageKey);
+    return null;
+  }
+};
+
+const writePopupData = (storageKey: string, data: TelegramPopupData) => {
+  localStorage.setItem(storageKey, JSON.stringify(data));
+};
+
+export default function TelegramPopup({ storageKeyPart }: TelegramPopupProps) {
   const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
-    // Check if popup should be shown
-    const popupData = localStorage.getItem('telegramPopupData');
-    
-    if (!popupData) {
-      // First time user
-      setShowPopup(true);
-    } else {
-      const data = JSON.parse(popupData);
-      const now = Date.now();
-      
-      // Check if 7 days have passed since last pause
-      if (data.pausedUntil && now < data.pausedUntil) {
-        setShowPopup(false);
-      } else if (data.joined) {
-        setShowPopup(false);
-      } else {
-        setShowPopup(true);
-      }
+    if (!storageKeyPart) {
+      setShowPopup(false);
+      return;
     }
-  }, []);
+
+    const storageKey = `${STORAGE_PREFIX}${storageKeyPart}`;
+    const data = readPopupData(storageKey);
+
+    if (!data) {
+      setShowPopup(true);
+      return;
+    }
+
+    const now = Date.now();
+
+    if (data.joined) {
+      setShowPopup(false);
+      return;
+    }
+
+    if (data.pausedUntil && now < data.pausedUntil) {
+      setShowPopup(false);
+      return;
+    }
+
+    setShowPopup(true);
+  }, [storageKeyPart]);
 
   const handleJoined = () => {
-    localStorage.setItem('telegramPopupData', JSON.stringify({
+    const storageKey = `${STORAGE_PREFIX}${storageKeyPart}`;
+    writePopupData(storageKey, {
       joined: true,
       timestamp: Date.now()
-    }));
+    });
     setShowPopup(false);
   };
 
@@ -40,10 +78,11 @@ export default function TelegramPopup() {
 
   const handlePause = () => {
     const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    localStorage.setItem('telegramPopupData', JSON.stringify({
+    const storageKey = `${STORAGE_PREFIX}${storageKeyPart}`;
+    writePopupData(storageKey, {
       pausedUntil: Date.now() + sevenDays,
       timestamp: Date.now()
-    }));
+    });
     setShowPopup(false);
   };
 
@@ -59,11 +98,11 @@ export default function TelegramPopup() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Overlay */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
       ></div>
-      
+
       {/* Popup */}
       <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 md:p-8 max-w-md w-full z-10 border border-gray-200 dark:border-gray-700">
         {/* Close Button */}
@@ -92,7 +131,7 @@ export default function TelegramPopup() {
         <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-4">
           সাহায্য প্রয়োজন?
         </h2>
-        
+
         <p className="text-center text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
           আমাদের টেলিগ্রাম গ্রুপে যোগ দিন এবং তাৎক্ষণিক সাহায্য পান। আমাদের কমিউনিটি সবসময় আপনাকে সাহায্য করতে প্রস্তুত!
         </p>
