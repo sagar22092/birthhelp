@@ -57,6 +57,22 @@ const menuItemsd = [
 const SERVICES_CACHE_KEY = "nav-services-cache-v1";
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
+const mergeMenuItems = (
+  baseItems: Array<{ label: string; icon: React.ReactNode; href: string }>,
+  extraItems: Array<{ label: string; icon: React.ReactNode; href: string }>
+) => {
+  const seen = new Set<string>();
+
+  return [...baseItems, ...extraItems].filter((item) => {
+    if (seen.has(item.href)) {
+      return false;
+    }
+
+    seen.add(item.href);
+    return true;
+  });
+};
+
 export default function Nav({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -108,13 +124,15 @@ export default function Nav({ children }: { children: React.ReactNode }) {
               items: Array<{ label: string; href: string }>;
             };
             if (Date.now() - parsed.timestamp < SERVICES_CACHE_TTL_MS) {
-              setMenuItems([
-                ...menuItemsd,
-                ...parsed.items.map((item) => ({
-                  ...item,
-                  icon: <ArrowBigRight size={20} />,
-                })),
-              ]);
+              setMenuItems(
+                mergeMenuItems(
+                  menuItemsd,
+                  parsed.items.map((item) => ({
+                    ...item,
+                    icon: <ArrowBigRight size={20} />,
+                  }))
+                )
+              );
             }
           } catch {
             sessionStorage.removeItem(SERVICES_CACHE_KEY);
@@ -150,7 +168,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
             })
           );
 
-          setMenuItems([...menuItemsd, ...newNavItems]);
+          setMenuItems(mergeMenuItems(menuItemsd, newNavItems));
         } catch (error) {
           console.log(error);
         }
