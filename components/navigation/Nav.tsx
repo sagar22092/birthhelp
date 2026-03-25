@@ -25,7 +25,13 @@ import axios from "axios";
 import TelegramPopup from "../TelegramPopup";
 import UpdateWhatsAppPopup from "../WhatsappAdd";
 
-const menuItemsd = [
+type MenuItem = {
+  label: string;
+  icon: React.ReactElement;
+  href: string;
+};
+
+const menuItemsd: MenuItem[] = [
   { label: "Home", icon: <Home size={20} />, href: "/" },
   {
     label: "Services",
@@ -58,8 +64,8 @@ const SERVICES_CACHE_KEY = "nav-services-cache-v1";
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const mergeMenuItems = (
-  baseItems: Array<{ label: string; icon: React.ReactNode; href: string }>,
-  extraItems: Array<{ label: string; icon: React.ReactNode; href: string }>
+  baseItems: MenuItem[],
+  extraItems: MenuItem[]
 ) => {
   const seen = new Set<string>();
 
@@ -80,7 +86,7 @@ export default function Nav({ children }: { children: React.ReactNode }) {
   const { user, isLoggedIn } = useAppSelector((state) => state.userAuth);
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [menuItems, setMenuItems] = useState(menuItemsd);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(menuItemsd);
   const telegramPopupKey = user?._id || user?.email || user?.username;
   useEffect(() => {
     let prevWidth = window.innerWidth;
