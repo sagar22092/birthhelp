@@ -88,7 +88,7 @@ const menuItemsd: MenuItem[] = [
   },
 ];
 
-const SERVICES_CACHE_KEY = "nav-services-cache-v2";
+const SERVICES_CACHE_KEY = "nav-services-cache-v3";
 const SERVICES_CACHE_TTL_MS = 5 * 60 * 1000;
 const SPRING_EASE_CLASS = "[transition-timing-function:cubic-bezier(0.34,1.56,0.64,1)]";
 

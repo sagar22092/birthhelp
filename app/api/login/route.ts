@@ -89,9 +89,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
 
-    const user = (await User.findOne({ email: emailLower }).select(
-      "+password +isEmailVerified +isActive +loginAttempts +lockUntil"
-    )) as IUser | null;
+    const user = (await User.findOne({ email: emailLower })) as IUser | null;
 
     if (!user)
       return NextResponse.json(
@@ -120,22 +118,20 @@ export async function POST(req: NextRequest) {
       const maxAttempts = 5;
       const lockTimeMs = 30 * 60 * 1000;
 
-      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      const newAttempts = (user.loginAttempts || 0) + 1;
 
-      if (user.loginAttempts >= maxAttempts) {
-        user.lockUntil = new Date(Date.now() + lockTimeMs);
-        user.loginAttempts = 0;
-        await user.save();
+      if (newAttempts >= maxAttempts) {
+        await User.updateOne({ _id: user._id }, { $set: { lockUntil: new Date(Date.now() + lockTimeMs), loginAttempts: 0 } });
         return NextResponse.json(
           { message: "Account locked due to failed attempts" },
           { status: 423 }
         );
       }
 
-      await user.save();
+      await User.updateOne({ _id: user._id }, { $set: { loginAttempts: newAttempts } });
       return NextResponse.json(
         {
-          message: `Wrong password. ${maxAttempts - user.loginAttempts
+          message: `Wrong password. ${maxAttempts - newAttempts
             } attempts left`,
         },
         { status: 401 }
@@ -145,18 +141,18 @@ export async function POST(req: NextRequest) {
     // Record successful login before proceeding
     recordSuccessfulLogin(emailLower);
 
-    // Reset failed attempts
-    if (user.loginAttempts || user.lockUntil) {
-      user.loginAttempts = 0;
-      user.lockUntil = undefined;
-    }
-
     const clientIpHeader = req.headers.get("x-forwarded-for");
     const ip = clientIpHeader ? clientIpHeader.split(",")[0].trim() : "unknown";
 
-    user.lastLogin = new Date();
-    user.lastLoginIp = ip;
-    await user.save();
+    // Update login info and reset failed attempts atomically
+    await User.updateOne({ _id: user._id }, {
+      $set: {
+        loginAttempts: 0,
+        lockUntil: null,
+        lastLogin: new Date(),
+        lastLoginIp: ip,
+      }
+    });
 
     const { accessToken, refreshToken } = generateTokens(
       user._id.toString(),

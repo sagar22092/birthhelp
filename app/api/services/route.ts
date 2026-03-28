@@ -14,6 +14,9 @@ export async function GET() {
       "services.service"
     );
  
+    if (!userWithServices) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
 
     const services = userWithServices.services || [];
 

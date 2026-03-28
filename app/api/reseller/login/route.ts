@@ -56,9 +56,7 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const user = (await Reseller.findOne({ email: emailLower }).select(
-      "+password +isEmailVerified +isActive +loginAttempts +lockUntil"
-    )) as IReseller;
+    const user = (await Reseller.findOne({ email: emailLower })) as IReseller;
 
     if (!user)
       return NextResponse.json({ message: "No user found" }, { status: 401 });
@@ -71,7 +69,6 @@ export async function POST(req: NextRequest) {
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      await user.save();
       return NextResponse.json(
         {
           message: `Wrong password`,
@@ -83,9 +80,9 @@ export async function POST(req: NextRequest) {
     const clientIpHeader = req.headers.get("x-forwarded-for");
     const ip = clientIpHeader ? clientIpHeader.split(",")[0].trim() : "unknown";
 
-    user.lastLogin = new Date();
-    user.lastLoginIp = ip;
-    await user.save();
+    await Reseller.updateOne({ _id: user._id }, {
+      $set: { lastLogin: new Date(), lastLoginIp: ip }
+    });
 
     const { accessToken, refreshToken } = generateTokens(
       user._id.toString(),
