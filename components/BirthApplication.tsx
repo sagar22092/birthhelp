@@ -757,12 +757,64 @@ const AddressSelectorModal: React.FC<{
         houseRoadEn: initial?.houseRoadEn || "",
       });
 
-      // Load initial data if country is Bangladesh
-      if (initial.country === "1") {
-        loadGeo("division", "1", "0", "0");
+      // Load initial data if country is Bangladesh with cascade
+      if (initial.country === "1" || !initial.country) {
+        const divisionId = initial?.division;
+        const districtId = initial?.district;
+        const upazilaId = initial?.cityCorpCantOrUpazila;
+        const unionId = initial?.paurasavaOrUnion;
+
+        // Step 1: Load all divisions
+        loadGeo("division", "1", "0", "0").then((divisions) => {
+          if (!divisionId || divisionId === "-1") return;
+
+          // Find the selected division to get its metadata
+          const selectedDiv = divisions.find((d) => d.id.toString() === divisionId.toString());
+          if (!selectedDiv) return;
+
+          // Step 2: Load districts for this division
+          loadGeo("district", divisionId, selectedDiv.targetGeoOrder?.toString() || "1", selectedDiv.geoLevelId?.toString() || "1")
+            .then((districts) => {
+              if (!districtId || districtId === "-1") return;
+
+              const selectedDist = districts.find((d) => d.id.toString() === districtId.toString());
+              if (!selectedDist) return;
+
+              // Step 3: Load upazilas for this district
+              loadGeo("upazila", districtId, selectedDist.targetGeoOrder?.toString() || "2", selectedDist.geoLevelId?.toString() || "2")
+                .then((upazilas) => {
+                  if (!upazilaId || upazilaId === "-1") return;
+
+                  // Step 4: Load unions (city/canton/union) for this upazila
+                  if (unionId && unionId !== "-1") {
+                    showLoading("union", true);
+                    Promise.all([
+                      fetch(buildUrl(upazilaId, "3", "8")).then((r) => r.json()).catch(() => ({ geoObject: [] })),
+                      fetch(buildUrl(upazilaId, "3", "7", true)).then((r) => r.json()).catch(() => ({ geoObject: [] })),
+                      fetch(buildUrl(upazilaId, "3", "3")).then((r) => r.json()).catch(() => ({ geoObject: [] })),
+                    ]).then(([city, canton, union]) => {
+                      const allGeoLocations: GeoLocation[] = [];
+                      [city, canton, union].forEach((data) => {
+                        const list = (data as GeoResponse).geoObject || [];
+                        list.forEach((item) =>
+                          allGeoLocations.push({
+                            ...item,
+                            id: item.id.toString(),
+                            nameBn: (item.nameBn || "").replace(/</g, "&lt;"),
+                            nameEn: (item.nameEn || "").replace(/</g, "&lt;"),
+                          })
+                        );
+                      });
+                      setOptions((prev) => ({ ...prev, union: allGeoLocations }));
+                    }).finally(() => showLoading("union", false));
+                  }
+                });
+            });
+        });
       }
     }
-  }, [isOpen, initial]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const renderSelect = (
     id: string,
