@@ -1,36 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// Routes that don't require authentication
-const PUBLIC_ROUTES = [
+// Pages that don't require authentication
+const PUBLIC_ROUTES = new Set([
   "/login",
   "/register",
   "/forgot-password",
   "/reset-password",
   "/verify-email",
-];
+]);
 
-// Routes starting with these prefixes are always public
-const PUBLIC_PREFIXES = [
+// API routes and prefixes that are always public
+const PUBLIC_API_PREFIXES = [
   "/api/login",
   "/api/register",
   "/api/forgot-password",
   "/api/reset-password",
   "/api/verify-email",
-  "/_next",
-  "/favicon",
-  "/public",
+  "/api/auth/refresh",
 ];
 
 function isPublicRoute(pathname: string): boolean {
-  if (PUBLIC_ROUTES.includes(pathname)) return true;
-  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (PUBLIC_ROUTES.has(pathname)) return true;
+  // All /api/ routes are public at middleware level
+  // (API handlers return 401 themselves, SessionGuard handles redirect)
+  if (pathname.startsWith("/api/")) return true;
+  return false;
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public routes through
+  // Allow public routes and all API routes through
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
@@ -38,7 +39,7 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   const refreshToken = req.cookies.get("refreshToken")?.value;
 
-  // No token at all → redirect to login
+  // No tokens at all → redirect to login immediately
   if (!token && !refreshToken) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("redirect", pathname);
@@ -46,64 +47,37 @@ export async function middleware(req: NextRequest) {
   }
 
   // Try to verify access token
-  let tokenValid = false;
   if (token) {
     try {
       const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
       await jwtVerify(token, secret);
-      tokenValid = true;
+      // Token valid → allow through
+      return NextResponse.next();
     } catch {
-      tokenValid = false;
+      // Token invalid/expired — fall through
     }
   }
 
-  // Access token valid → proceed
-  if (tokenValid) {
-    return NextResponse.next();
-  }
-
-  // Access token expired/invalid but refresh token exists → try refresh
+  // Access token expired but refresh token might be valid
+  // Allow the page to load — SessionGuard (client-side) will call /api/auth/refresh
   if (refreshToken) {
     try {
-      const refreshSecret = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!);
+      const refreshSecret = new TextEncoder().encode(
+        process.env.JWT_REFRESH_SECRET!
+      );
       await jwtVerify(refreshToken, refreshSecret);
-
-      // Refresh token is valid → call refresh API to get new access token
-      const refreshUrl = new URL("/api/auth/refresh", req.url);
-      const refreshResponse = await fetch(refreshUrl, {
-        method: "POST",
-        headers: {
-          cookie: `refreshToken=${refreshToken}`,
-        },
-      });
-
-      if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
-        const newToken = data.token;
-
-        // Continue with new token set in cookie
-        const response = NextResponse.next();
-        response.cookies.set({
-          name: "token",
-          value: newToken,
-          httpOnly: true,
-          maxAge: 24 * 60 * 60, // 1 day
-          sameSite: "lax",
-          path: "/",
-          secure: process.env.NODE_ENV === "production",
-        });
-        return response;
-      }
+      // Refresh token still valid → allow page load, client will refresh silently
+      return NextResponse.next();
     } catch {
-      // Refresh token also expired/invalid
+      // Refresh token also expired
     }
   }
 
   // Both tokens invalid → redirect to login
   const loginUrl = new URL("/login", req.url);
   loginUrl.searchParams.set("redirect", pathname);
+  loginUrl.searchParams.set("reason", "session_expired");
   const response = NextResponse.redirect(loginUrl);
-  // Clear expired cookies
   response.cookies.delete("token");
   response.cookies.delete("refreshToken");
   return response;
@@ -111,13 +85,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths EXCEPT:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder
-     */
+    // Match all paths except static assets
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
