@@ -3498,15 +3498,30 @@ export default function BirthRegistrationForm() {
         >
           {/* Resubmit warning banner */}
           {resubmitApplicationId && (
-            <div className="mb-6 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
-              <span className="text-amber-500 text-xl mt-0.5">⚠️</span>
-              <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300">পূর্বের আবেদন এডিট করা হচ্ছে</p>
-                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                  ফর্মের সমস্ত তথ্য আগের আবেদন থেকে লোড হয়েছে। যা পরিবর্তন করতে চান তা এডিট করুন।
-                  <strong className="block mt-1">⚠️ ডকুমেন্ট ফাইলগুলি (ছবি/স্ক্যান) আবার আপলোড করতে হবে।</strong>
-                </p>
+            <div className="mb-6 flex items-start justify-between gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-amber-500 text-xl mt-0.5">⚠️</span>
+                <div>
+                  <p className="font-semibold text-amber-800 dark:text-amber-300">পূর্বের আবেদন এডিট করা হচ্ছে</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    ফর্মের সমস্ত তথ্য আগের আবেদন থেকে লোড হয়েছে। যা পরিবর্তন করতে চান তা এডিট করুন।
+                    <strong className="block mt-1">⚠️ ডকুমেন্ট ফাইলগুলি (ছবি/স্ক্যান) আবার আপলোড করতে হবে।</strong>
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("ফর্মের সব তথ্য মুছে নতুন আবেদন শুরু করবেন?")) {
+                    localStorage.removeItem(DRAFT_KEY);
+                    window.location.reload();
+                  }
+                }}
+                className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                title="ফর্ম clear করে নতুন আবেদন শুরু করুন"
+              >
+                🗑️ নতুন আবেদন
+              </button>
             </div>
           )}
 
