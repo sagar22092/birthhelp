@@ -1136,7 +1136,7 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
     if (!selectedAddress) return null;
 
     if (selectedAddress.country === "1") {
-      // Bangladesh address
+      // Bangladesh address - use names if available, else show what we have
       const parts = [
         selectedAddress.vilAreaTownBn,
         selectedAddress.unionName,
@@ -1145,7 +1145,17 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
         selectedAddress.divisionName,
       ].filter(Boolean);
 
-      return parts.join(", ");
+      if (parts.length > 0) {
+        return parts.join(", ");
+      }
+
+      // Fallback: show that an address is selected (IDs present but no names)
+      const hasSomeData = selectedAddress.division && selectedAddress.district && selectedAddress.paurasavaOrUnion;
+      if (hasSomeData) {
+        return `ঠিকানা নির্বাচিত (${selectedAddress.vilAreaTownBn || "গ্রাম/এলাকা উল্লেখ নেই"})`;
+      }
+
+      return selectedAddress.vilAreaTownBn || "ঠিকানা নির্বাচিত";
     } else {
       // Foreign address
       const country = countriesList.find(
