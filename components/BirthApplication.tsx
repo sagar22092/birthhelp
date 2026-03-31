@@ -1116,16 +1116,28 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>((initial as Address) || null);
   const [hasValidAddress, setHasValidAddress] = useState(!!initial);
-  // Track whether the user has manually selected an address
-  // to prevent draft-restore initial prop from overwriting it
   const userSelectedRef = useRef(false);
+
+  const addressHasNames = !!(
+    selectedAddress?.divisionName || selectedAddress?.districtName
+  );
+  const addressNeedsConfirm =
+    selectedAddress &&
+    selectedAddress.division &&
+    selectedAddress.division !== "-1" &&
+    !addressHasNames;
 
   // Sync selectedAddress when initial prop changes (draft restore / history edit)
   // BUT only if the user has NOT already manually selected an address
+  // Also: if address has no names (history edit), mark as NOT valid so user must reconfirm
   useEffect(() => {
     if (!userSelectedRef.current && initial) {
+      const hasNames = !!(
+        (initial as Address).divisionName || (initial as Address).districtName
+      );
       setSelectedAddress(initial as Address);
-      setHasValidAddress(true);
+      // If loaded from history (no names), don't mark as valid yet
+      setHasValidAddress(hasNames);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.division, initial?.district, initial?.paurasavaOrUnion, initial?.country]);
@@ -1159,7 +1171,7 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
       // Fallback: show that an address is selected (IDs present but no names)
       const hasSomeData = selectedAddress.division && selectedAddress.district && selectedAddress.paurasavaOrUnion;
       if (hasSomeData) {
-        return `ঠিকানা নির্বাচিত (${selectedAddress.vilAreaTownBn || "গ্রাম/এলাকা উল্লেখ নেই"})`;
+        return selectedAddress.vilAreaTownBn || "ঠিকানা নির্বাচিত";
       }
 
       return selectedAddress.vilAreaTownBn || "ঠিকানা নির্বাচিত";
@@ -1190,6 +1202,11 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
             ✓ ঠিকানা নির্বাচন করা হয়েছে
           </span>
         )}
+        {addressNeedsConfirm && (
+          <span className="text-amber-600 dark:text-amber-400 text-sm">
+            ⚠️ ঠিকানা নিশ্চিত করুন
+          </span>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -1214,7 +1231,37 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
           <span className="font-medium">{buttonText}</span>
         </button>
 
-        {selectedAddress && (
+        {/* Address needs confirmation (loaded from history, names missing) */}
+        {addressNeedsConfirm && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-amber-500 mt-0.5">⚠️</span>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">পূর্বের ঠিকানা লোড হয়েছে — নিশ্চিত করা প্রয়োজন</p>
+                {selectedAddress?.vilAreaTownBn && (
+                  <p className="text-amber-700 dark:text-amber-400 text-sm mt-1">
+                    গ্রাম/এলাকা: {selectedAddress.vilAreaTownBn}
+                  </p>
+                )}
+                {selectedAddress?.postOfc && (
+                  <p className="text-amber-600 dark:text-amber-400 text-sm">
+                    ডাকঘর: {selectedAddress.postOfc}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-md font-medium transition-colors"
+                >
+                  ঠিকানা নিশ্চিত করুন →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Normal address display (names present) */}
+        {selectedAddress && addressHasNames && (
           <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <h4 className="font-semibold text-green-800 dark:text-green-400 mb-2">
               নির্বাচিত ঠিকানা:
