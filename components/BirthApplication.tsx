@@ -1490,6 +1490,44 @@ export default function BirthRegistrationForm() {
     },
   ];
 
+  // Auto-save & Restore Draft state
+  const DRAFT_KEY = "birthApplicationDraft";
+  const [resubmitApplicationId, setResubmitApplicationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+          if (parsed.formData) setFormData(parsed.formData);
+          if (parsed.bdMissionChecked !== undefined) setBdMissionChecked(parsed.bdMissionChecked);
+          if (parsed.age) setAge(parsed.age);
+          if (parsed.resubmitApplicationId) setResubmitApplicationId(parsed.resubmitApplicationId);
+        } catch (e) {
+          console.error("Failed to parse form draft", e);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timeout = setTimeout(() => {
+      const existing = localStorage.getItem(DRAFT_KEY);
+      let resubmitId: string | null = null;
+      try {
+        resubmitId = existing ? JSON.parse(existing)?.resubmitApplicationId ?? null : null;
+      } catch {}
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ currentStep, formData, bdMissionChecked, age, resubmitApplicationId: resubmitId })
+      );
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [currentStep, formData, bdMissionChecked, age]);
+
   // Countdown timer effect - FIXED
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -2878,6 +2916,12 @@ export default function BirthRegistrationForm() {
         // Other required fields
         declaration: "on",
         personImage: "",
+
+        // Resubmit fields (populated when editing from history)
+        ...(resubmitApplicationId ? {
+          isResubmit: true,
+          originalApplicationId: resubmitApplicationId,
+        } : {}),
       };
 
       // OTP verification
@@ -2925,6 +2969,7 @@ export default function BirthRegistrationForm() {
         const resData = await response.json();
 
         if (resData.success) {
+          localStorage.removeItem(DRAFT_KEY);
           router.push(`/birth/application/registration/view/${resData.id}`);
           toast.success("আবেদন সফলভাবে জমা দেওয়া হয়েছে!", {
             id: "submission",
@@ -3326,6 +3371,20 @@ export default function BirthRegistrationForm() {
           onSubmit={handleSubmit}
           className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6"
         >
+          {/* Resubmit warning banner */}
+          {resubmitApplicationId && (
+            <div className="mb-6 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
+              <span className="text-amber-500 text-xl mt-0.5">⚠️</span>
+              <div>
+                <p className="font-semibold text-amber-800 dark:text-amber-300">পূর্বের আবেদন এডিট করা হচ্ছে</p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                  ফর্মের সমস্ত তথ্য আগের আবেদন থেকে লোড হয়েছে। যা পরিবর্তন করতে চান তা এডিট করুন।
+                  <strong className="block mt-1">⚠️ ডকুমেন্ট ফাইলগুলি (ছবি/স্ক্যান) আবার আপলোড করতে হবে।</strong>
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Step 1: Office Selection */}
           {currentStep === 1 && (
             <div className="space-y-6">

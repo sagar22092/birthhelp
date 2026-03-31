@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   Download,
@@ -27,6 +28,7 @@ import {
   Users,
   Baby,
   FileCheck,
+  Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import ReSubmitPopup from "./NewAppReSubmitPopUp";
@@ -190,6 +192,7 @@ const getDaysRemaining = (lastDate: string): number => {
 
 // ==================== Main Component ====================
 const BirthApplications: React.FC = () => {
+  const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -294,6 +297,134 @@ const BirthApplications: React.FC = () => {
   const handleDownloadAttachment = (attachment: Attachment) => {
     // Implement download logic
     console.log("Downloading:", attachment.name);
+  };
+
+  // Map history Application to BirthApplication form draft format
+  const handleEditApplication = (app: Application) => {
+    // Build birth place address object
+    const birthPlaceAddress = {
+      country: app.birthPlaceCountry || "1",
+      division: app.birthPlaceDiv,
+      district: app.birthPlaceDist,
+      cityCorpCantOrUpazila: app.birthPlaceCityCorpCantOrUpazila,
+      paurasavaOrUnion: app.birthPlacePaurasavaOrUnion,
+      ward: app.birthPlaceWardInPaurasavaOrUnion,
+      vilAreaTownBn: app.birthPlaceVilAreaTownBn,
+      vilAreaTownEn: app.birthPlaceVilAreaTownEn,
+      postOfc: app.birthPlacePostOfc,
+      postOfcEn: app.birthPlacePostOfcEn,
+      houseRoadBn: app.birthPlaceHouseRoadBn,
+      houseRoadEn: app.birthPlaceHouseRoadEn,
+    };
+
+    const copyBirth = app.copyBirthPlaceToPermAddr === "yes";
+    const copyPerm = app.copyPermAddrToPrsntAddr === "yes";
+
+    const permAddrAddress = copyBirth
+      ? birthPlaceAddress
+      : {
+          country: app.permAddrCountry || "1",
+          division: app.permAddrDiv,
+          district: app.permAddrDist,
+          cityCorpCantOrUpazila: app.permAddrCityCorpCantOrUpazila,
+          paurasavaOrUnion: app.permAddrPaurasavaOrUnion,
+          ward: app.permAddrWardInPaurasavaOrUnion,
+          vilAreaTownBn: "",
+          vilAreaTownEn: "",
+          postOfc: "",
+          postOfcEn: "",
+          houseRoadBn: "",
+          houseRoadEn: "",
+        };
+
+    const prsntAddrAddress = copyPerm
+      ? permAddrAddress
+      : {
+          country: app.prsntAddrCountry || "1",
+          division: app.prsntAddrDiv,
+          district: app.prsntAddrDist,
+          cityCorpCantOrUpazila: app.prsntAddrCityCorpCantOrUpazila,
+          paurasavaOrUnion: app.prsntAddrPaurasavaOrUnion,
+          ward: app.prsntAddrWardInPaurasavaOrUnion,
+          vilAreaTownBn: "",
+          vilAreaTownEn: "",
+          postOfc: "",
+          postOfcEn: "",
+          houseRoadBn: "",
+          houseRoadEn: "",
+        };
+
+    const formData = {
+      officeAddressType: app.officeAddressType as "BIRTHPLACE" | "PERMANENT" | "MISSION" | "",
+      officeAddrCountry: app.officeAddrCountry || "",
+      officeAddrCity: app.officeAddrCity || "",
+      officeAddrDivision: app.officeAddrDivision || "",
+      officeAddrDistrict: app.officeAddrDistrict || "",
+      officeAddrUpazila: app.officeAddrCityCorpCantOrUpazila || "",
+      officeAddrUnion: app.officeAddrPaurasavaOrUnion || "",
+      officeAddrWard: app.officeAddrWard || "",
+      officeAddrOffice: app.officeAddrOffice || "",
+      officeId: "",
+      personInfoForBirth: {
+        personFirstNameBn: app.personInfoForBirth.personFirstNameBn || "",
+        personLastNameBn: app.personInfoForBirth.personLastNameBn || "",
+        personNameBn: app.personInfoForBirth.personNameBn || "",
+        personFirstNameEn: app.personInfoForBirth.personFirstNameEn || "",
+        personLastNameEn: app.personInfoForBirth.personLastNameEn || "",
+        personNameEn: app.personInfoForBirth.personNameEn || "",
+        personBirthDate: app.personInfoForBirth.personBirthDate || "",
+        thChild: app.personInfoForBirth.thChild || "",
+        gender: app.personInfoForBirth.gender || "",
+        religion: app.personInfoForBirth.religion || "NOT_APPLICABLE",
+        religionOther: app.personInfoForBirth.religionOther || "",
+        personNid: app.personInfoForBirth.personNid || "",
+      },
+      birthPlaceAddress,
+      father: {
+        id: "",
+        ubrn: app.father?.ubrn || "",
+        personBirthDate: app.father?.personBirthDate || "",
+        personNameBn: app.father?.personNameBn || "",
+        personNameEn: app.father?.personNameEn || "",
+        personNid: app.father?.personNid || "",
+        passportNumber: app.father?.passportNumber || "",
+        personNationality: app.father?.personNationality || "",
+      },
+      mother: {
+        id: "",
+        ubrn: app.mother?.ubrn || "",
+        personBirthDate: app.mother?.personBirthDate || "",
+        personNameBn: app.mother?.personNameBn || "",
+        personNameEn: app.mother?.personNameEn || "",
+        personNid: app.mother?.personNid || "",
+        passportNumber: app.mother?.passportNumber || "",
+        personNationality: app.mother?.personNationality || "",
+      },
+      copyBirthPlaceToPermAddr: copyBirth,
+      permAddrAddress,
+      copyPermAddrToPrsntAddr: copyPerm,
+      prsntAddrAddress,
+      applicant: {
+        name: app.applicantName || "",
+        nid: "",
+        phone: app.phone?.replace("+88", "") || "",
+        email: app.email || "",
+        relation: app.relationWithApplicant || "",
+        otp: "",
+      },
+    };
+
+    const draft = {
+      currentStep: 1,
+      formData,
+      bdMissionChecked: (app.officeAddressType as string) === "MISSION",
+      age: { years: 0, months: 0, days: 0 },
+      resubmitApplicationId: app._id,
+    };
+
+    localStorage.setItem("birthApplicationDraft", JSON.stringify(draft));
+    toast.success("ডেটা লোড হচ্ছে...ফর্মে নিয়ে যাওয়া হচ্ছে");
+    router.push("/birth/application/registration");
   };
   const openPopup = async (id: string) => {
     const application = applications.find((app) => app._id === id);
@@ -642,6 +773,19 @@ const BirthApplications: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                      {/* Edit Button - always visible */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditApplication(app);
+                        }}
+                        className="px-3 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-800/50 text-amber-700 dark:text-amber-300 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all duration-200 border border-amber-200 dark:border-amber-700/50"
+                        title="এই আবেদনটি এডিট করে পুনরায় জমা দিন"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+
                       {app.status === "submitted" ? (
                         <div className="text-right">
                           <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -668,7 +812,10 @@ const BirthApplications: React.FC = () => {
                       ) : (
                         <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                           <button
-                            onClick={() => openPopup(app._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPopup(app._id);
+                            }}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg hover:shadow-md transition-all duration-200"
                           >
                             Submit
