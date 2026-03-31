@@ -1116,10 +1116,14 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>((initial as Address) || null);
   const [hasValidAddress, setHasValidAddress] = useState(!!initial);
+  // Track whether the user has manually selected an address
+  // to prevent draft-restore initial prop from overwriting it
+  const userSelectedRef = useRef(false);
 
-  // Sync selectedAddress when initial prop changes (e.g., draft load or edit from history)
+  // Sync selectedAddress when initial prop changes (draft restore / history edit)
+  // BUT only if the user has NOT already manually selected an address
   useEffect(() => {
-    if (initial && initial !== selectedAddress) {
+    if (!userSelectedRef.current && initial) {
       setSelectedAddress(initial as Address);
       setHasValidAddress(true);
     }
@@ -1127,6 +1131,7 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
   }, [initial?.division, initial?.district, initial?.paurasavaOrUnion, initial?.country]);
 
   const handleApply = (address: Address) => {
+    userSelectedRef.current = true;  // mark as manually selected
     setSelectedAddress(address);
     onApply(address);
     setHasValidAddress(true);
@@ -1143,7 +1148,9 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
         selectedAddress.upazilaName,
         selectedAddress.districtName,
         selectedAddress.divisionName,
-      ].filter(Boolean);
+      ]
+        .map((p) => p?.replace(/[,\s]+$/, "").trim()) // trim trailing commas & spaces
+        .filter(Boolean);
 
       if (parts.length > 0) {
         return parts.join(", ");
