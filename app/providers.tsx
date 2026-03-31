@@ -3,6 +3,7 @@
 import { Provider } from "react-redux";
 import { store } from "@/lib/store";
 import { NotificationProvider } from "@/context/NotificationContext";
+import SessionGuard from "@/components/SessionGuard";
 
 interface Props {
   children: React.ReactNode;
@@ -11,7 +12,10 @@ interface Props {
 const ReduxProvider: React.FC<Props> = ({ children }) => {
   return (
     <Provider store={store}>
-      <NotificationProvider>{children}</NotificationProvider>
+      <NotificationProvider>
+        <SessionGuard />
+        {children}
+      </NotificationProvider>
     </Provider>
   );
 };

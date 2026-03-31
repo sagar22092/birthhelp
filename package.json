@@ -21,6 +21,7 @@
     "formdata-node": "^6.0.3",
     "html2canvas": "^1.4.1",
     "ioredis": "^5.9.1",
+    "jose": "^6.2.2",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
