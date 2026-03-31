@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     formData.append("_csrf", csrf);
     formData.append("attachmentType", attachmentType);
     formData.append("attachmentSubType", attachmentSubType || "-1");
-    formData.append("files", file);
+    // Ensure the filename is preserved to bypass BDRIS extension checks
+    formData.append("files", file, file.name || "document.jpg");
 
     // Make the request
     const response = await fetch(url, {
