@@ -1114,8 +1114,17 @@ const BDRISGeoSelector: React.FC<GeoSelectorProps> = ({
   isBdMission,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-  const [hasValidAddress, setHasValidAddress] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>((initial as Address) || null);
+  const [hasValidAddress, setHasValidAddress] = useState(!!initial);
+
+  // Sync selectedAddress when initial prop changes (e.g., draft load or edit from history)
+  useEffect(() => {
+    if (initial && initial !== selectedAddress) {
+      setSelectedAddress(initial as Address);
+      setHasValidAddress(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.division, initial?.district, initial?.paurasavaOrUnion, initial?.country]);
 
   const handleApply = (address: Address) => {
     setSelectedAddress(address);
